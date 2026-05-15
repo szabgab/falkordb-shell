@@ -1,5 +1,8 @@
 use clap::Parser;
-use falkordb::{FalkorClientBuilder, FalkorConnectionInfo, FalkorValue, QueryResult, SyncGraph};
+use falkordb::{
+    FalkorClientBuilder, FalkorConnectionInfo, FalkorSyncClient, FalkorValue, QueryResult,
+    SyncGraph,
+};
 use rustyline::{CompletionType, Config, DefaultEditor, error::ReadlineError};
 use std::{
     collections::HashMap,
@@ -14,6 +17,8 @@ const HELP: &str = r#"
 .help, - Show this help page.
 .exit, .quit - Quit the REPL.
 .intro - Introduction to the OpenCyper commands.
+.graph - Show the current graph.
+.graph NAME - Switch to the selected graph.
 "#;
 const INTRO: &str = r#"
 # Create a `Node` with the `Person` label (type) and the `name` attribute (property)
@@ -33,6 +38,7 @@ struct Args {
 enum ShellCommand<'a> {
     Empty,
     Exit,
+    Graph(Option<&'a str>),
     Help,
     Intro,
     Query(&'a str),
@@ -52,7 +58,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Welcome to the interactive FalkorDB shell.");
     println!("Type .help to see the help.");
-    let shell_result = run_shell(&mut editor, &mut graph);
+    let shell_result = run_shell(&mut editor, &client, &mut graph);
     save_history(&mut editor, &history_file);
     shell_result
 }
@@ -92,7 +98,11 @@ fn save_history(editor: &mut DefaultEditor, history_file: &Path) {
     }
 }
 
-fn run_shell(editor: &mut DefaultEditor, graph: &mut SyncGraph) -> Result<(), Box<dyn Error>> {
+fn run_shell(
+    editor: &mut DefaultEditor,
+    client: &FalkorSyncClient,
+    graph: &mut SyncGraph,
+) -> Result<(), Box<dyn Error>> {
     loop {
         let line = match editor.readline(PROMPT) {
             Ok(line) => line,
@@ -116,6 +126,13 @@ fn run_shell(editor: &mut DefaultEditor, graph: &mut SyncGraph) -> Result<(), Bo
         match classify_command(command) {
             ShellCommand::Empty => continue,
             ShellCommand::Exit => return Ok(()),
+            ShellCommand::Graph(graph_name) => match graph_name {
+                None => println!("{}", graph.graph_name()),
+                Some(graph_name) => {
+                    *graph = client.select_graph(graph_name);
+                    println!("Switched to graph: {}", graph.graph_name());
+                }
+            },
             ShellCommand::Help => {
                 println!("{HELP}");
             }
@@ -131,6 +148,15 @@ fn run_shell(editor: &mut DefaultEditor, graph: &mut SyncGraph) -> Result<(), Bo
 }
 
 fn classify_command(command: &str) -> ShellCommand<'_> {
+    if let Some(rest) = command.strip_prefix(".graph") {
+        let graph_name = rest.trim();
+        return if graph_name.is_empty() {
+            ShellCommand::Graph(None)
+        } else {
+            ShellCommand::Graph(Some(graph_name))
+        };
+    }
+
     match command {
         "" => ShellCommand::Empty,
         ".exit" | ".quit" => ShellCommand::Exit,
@@ -298,6 +324,14 @@ mod tests {
         assert!(matches!(classify_command(""), ShellCommand::Empty));
         assert!(matches!(classify_command(".help"), ShellCommand::Help));
         assert!(matches!(classify_command(".intro"), ShellCommand::Intro));
+        assert!(matches!(
+            classify_command(".graph"),
+            ShellCommand::Graph(None)
+        ));
+        assert!(matches!(
+            classify_command(".graph demo"),
+            ShellCommand::Graph(Some("demo"))
+        ));
         assert!(matches!(classify_command(".quit"), ShellCommand::Exit));
         assert!(matches!(
             classify_command("RETURN 1"),
