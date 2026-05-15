@@ -19,6 +19,7 @@ const HELP: &str = r#"
 .intro - Introduction to the OpenCyper commands.
 .graph - Show the current graph.
 .graph NAME - Switch to the selected graph.
+.list - List all graph names in the database.
 "#;
 const INTRO: &str = r#"
 # Create a `Node` with the `Person` label (type) and the `name` attribute (property)
@@ -41,6 +42,7 @@ enum ShellCommand<'a> {
     Graph(Option<&'a str>),
     Help,
     Intro,
+    List,
     Query(&'a str),
 }
 
@@ -139,6 +141,19 @@ fn run_shell(
             ShellCommand::Intro => {
                 println!("{INTRO}");
             }
+            ShellCommand::List => match client.list_graphs() {
+                Ok(graphs) if graphs.is_empty() => println!("No graphs found."),
+                Ok(graphs) => {
+                    for graph_name in graphs {
+                        if graph_name == graph.graph_name() {
+                            println!("{graph_name} *");
+                        } else {
+                            println!("{graph_name}");
+                        }
+                    }
+                }
+                Err(error) => println!("ERROR: {error}"),
+            },
             ShellCommand::Query(query) => match graph.query(query).execute() {
                 Ok(result) => print_result(result),
                 Err(error) => println!("ERROR: {error}"),
@@ -162,6 +177,7 @@ fn classify_command(command: &str) -> ShellCommand<'_> {
         ".exit" | ".quit" => ShellCommand::Exit,
         ".help" => ShellCommand::Help,
         ".intro" => ShellCommand::Intro,
+        ".list" => ShellCommand::List,
         _ => ShellCommand::Query(command),
     }
 }
@@ -324,6 +340,7 @@ mod tests {
         assert!(matches!(classify_command(""), ShellCommand::Empty));
         assert!(matches!(classify_command(".help"), ShellCommand::Help));
         assert!(matches!(classify_command(".intro"), ShellCommand::Intro));
+        assert!(matches!(classify_command(".list"), ShellCommand::List));
         assert!(matches!(
             classify_command(".graph"),
             ShellCommand::Graph(None)
