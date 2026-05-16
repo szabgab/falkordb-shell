@@ -2,6 +2,13 @@
 name = "falkordb-shell"
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Command line client for FalkorDB"
+keywords = ["cli", "web", "database", "falkordb"]
+categories = ["database"]
+readme = "README.md"
+repository = "https://github.com/szabgab/falkordb-shell/"
+homepage = "https://falkordb.code-maven.com/"
 
 [dependencies]
 clap = { version = "4.6.1", features = ["derive"] }
