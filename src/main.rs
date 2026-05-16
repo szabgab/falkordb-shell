@@ -43,6 +43,7 @@ enum ShellCommand<'a> {
     Graph(Option<&'a str>),
     Help,
     Intro,
+    Invalid(&'a str),
     List,
     Query(&'a str),
 }
@@ -142,6 +143,9 @@ fn run_shell(
             ShellCommand::Intro => {
                 println!("{INTRO}");
             }
+            ShellCommand::Invalid(command) => {
+                println!("ERROR: unknown command: {command}");
+            }
             ShellCommand::List => match client.list_graphs() {
                 Ok(graphs) if graphs.is_empty() => println!("No graphs found."),
                 Ok(graphs) => {
@@ -179,6 +183,7 @@ fn classify_command(command: &str) -> ShellCommand<'_> {
         ".help" => ShellCommand::Help,
         ".intro" => ShellCommand::Intro,
         ".list" => ShellCommand::List,
+        _ if command.starts_with('.') => ShellCommand::Invalid(command),
         _ => ShellCommand::Query(command),
     }
 }
@@ -342,6 +347,10 @@ mod tests {
         assert!(matches!(classify_command(".help"), ShellCommand::Help));
         assert!(matches!(classify_command(".intro"), ShellCommand::Intro));
         assert!(matches!(classify_command(".list"), ShellCommand::List));
+        assert!(matches!(
+            classify_command(".bogus"),
+            ShellCommand::Invalid(".bogus")
+        ));
         assert!(matches!(
             classify_command(".graph"),
             ShellCommand::Graph(None)
