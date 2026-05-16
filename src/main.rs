@@ -36,8 +36,8 @@ struct Args {
     host: String,
     #[arg(long, default_value_t = 6379)]
     port: u16,
-    #[arg(long, default_value = "Shell")]
-    graph: String,
+    #[arg(long)]
+    graph: Option<String>,
 }
 
 enum ShellCommand<'a> {
@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let client = FalkorClientBuilder::new()
         .with_connection_info(connection_info)
         .build()?;
-    let mut graph = client.select_graph(args.graph);
+    let mut graph = args.graph.map(|graph_name| client.select_graph(graph_name));
 
     println!("Welcome to the interactive FalkorDB shell v{VERSION}.");
     println!("Type .help to see the help.");
@@ -115,12 +115,12 @@ fn save_history(editor: &mut DefaultEditor, history_file: &Path) {
 fn run_shell(
     editor: &mut DefaultEditor,
     client: &FalkorSyncClient,
-    graph: &mut SyncGraph,
+    graph: &mut Option<SyncGraph>,
 ) -> Result<(), Box<dyn Error>> {
     let mut prompt_style = PromptStyle::GraphName;
 
     loop {
-        let prompt = format_prompt(prompt_style, graph.graph_name());
+        let prompt = format_prompt(prompt_style, current_graph_name(graph));
         let line = match editor.readline(&prompt) {
             Ok(line) => line,
             Err(ReadlineError::Eof) => {
@@ -144,10 +144,13 @@ fn run_shell(
             ShellCommand::Empty => continue,
             ShellCommand::Exit => return Ok(()),
             ShellCommand::Graph(graph_name) => match graph_name {
-                None => println!("{}", graph.graph_name()),
+                None => match current_graph_name(graph) {
+                    Some(graph_name) => println!("{graph_name}"),
+                    None => println!("No graph selected."),
+                },
                 Some(graph_name) => {
-                    *graph = client.select_graph(graph_name);
-                    println!("Switched to graph: {}", graph.graph_name());
+                    *graph = Some(client.select_graph(graph_name));
+                    println!("Switched to graph: {graph_name}");
                 }
             },
             ShellCommand::Help => {
@@ -162,8 +165,9 @@ fn run_shell(
             ShellCommand::List => match client.list_graphs() {
                 Ok(graphs) if graphs.is_empty() => println!("No graphs found."),
                 Ok(graphs) => {
+                    let current_graph = current_graph_name(graph);
                     for graph_name in graphs {
-                        if graph_name == graph.graph_name() {
+                        if Some(graph_name.as_str()) == current_graph {
                             println!("{graph_name} *");
                         } else {
                             println!("{graph_name}");
@@ -178,9 +182,12 @@ fn run_shell(
                     PromptStyle::GraphName => PromptStyle::Plain,
                 };
             }
-            ShellCommand::Query(query) => match graph.query(query).execute() {
-                Ok(result) => print_result(result),
-                Err(error) => println!("ERROR: {error}"),
+            ShellCommand::Query(query) => match graph {
+                Some(graph) => match graph.query(query).execute() {
+                    Ok(result) => print_result(result),
+                    Err(error) => println!("ERROR: {error}"),
+                },
+                None => println!("ERROR: no graph selected. Use `.list` to list available graphs and use `.graph NAME` to select one."),
             },
         }
     }
@@ -208,10 +215,17 @@ fn classify_command(command: &str) -> ShellCommand<'_> {
     }
 }
 
-fn format_prompt(prompt_style: PromptStyle, graph_name: &str) -> String {
+fn current_graph_name(graph: &Option<SyncGraph>) -> Option<&str> {
+    graph.as_ref().map(SyncGraph::graph_name)
+}
+
+fn format_prompt(prompt_style: PromptStyle, graph_name: Option<&str>) -> String {
     match prompt_style {
         PromptStyle::Plain => PLAIN_PROMPT.to_string(),
-        PromptStyle::GraphName => format!("falkordb ({graph_name})> "),
+        PromptStyle::GraphName => match graph_name {
+            Some(graph_name) => format!("falkordb ({graph_name})> "),
+            None => PLAIN_PROMPT.to_string(),
+        },
     }
 }
 
@@ -430,10 +444,14 @@ mod tests {
 
     #[test]
     fn formats_prompt() {
-        assert_eq!(format_prompt(PromptStyle::Plain, "Shell"), "falkordb> ");
         assert_eq!(
-            format_prompt(PromptStyle::GraphName, "Shell"),
+            format_prompt(PromptStyle::Plain, Some("Shell")),
+            "falkordb> "
+        );
+        assert_eq!(
+            format_prompt(PromptStyle::GraphName, Some("Shell")),
             "falkordb (Shell)> "
         );
+        assert_eq!(format_prompt(PromptStyle::GraphName, None), "falkordb> ");
     }
 }
