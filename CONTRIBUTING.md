@@ -5,6 +5,7 @@
 * Update version number in Cargo.toml and in the comment below.
 * `git add .`
 * `git commit -m "update version to v0.2.0"`
+* `git push`
 * `git tag -a v0.2.0 -m "publish version v0.2.0"`
 * `git push --tags`
 * `cargo publish`
