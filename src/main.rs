@@ -12,7 +12,7 @@ use std::{
 };
 
 const HISTORY_FILE_NAME: &str = ".falkordb_shell_history";
-const PROMPT: &str = "falkordb> ";
+const PLAIN_PROMPT: &str = "falkordb> ";
 const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HELP: &str = r#"
@@ -22,6 +22,7 @@ const HELP: &str = r#"
 .graph - Show the current graph.
 .graph NAME - Switch to the selected graph.
 .list - List all graph names in the database.
+.prompt - Toggle between plain and graph-aware prompts.
 "#;
 const INTRO: &str = r#"
 # Create a `Node` with the `Person` label (type) and the `name` attribute (property)
@@ -47,7 +48,14 @@ enum ShellCommand<'a> {
     Intro,
     Invalid(&'a str),
     List,
+    Prompt,
     Query(&'a str),
+}
+
+#[derive(Clone, Copy)]
+enum PromptStyle {
+    Plain,
+    GraphName,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -109,8 +117,11 @@ fn run_shell(
     client: &FalkorSyncClient,
     graph: &mut SyncGraph,
 ) -> Result<(), Box<dyn Error>> {
+    let mut prompt_style = PromptStyle::GraphName;
+
     loop {
-        let line = match editor.readline(PROMPT) {
+        let prompt = format_prompt(prompt_style, graph.graph_name());
+        let line = match editor.readline(&prompt) {
             Ok(line) => line,
             Err(ReadlineError::Eof) => {
                 println!();
@@ -161,6 +172,12 @@ fn run_shell(
                 }
                 Err(error) => println!("ERROR: {error}"),
             },
+            ShellCommand::Prompt => {
+                prompt_style = match prompt_style {
+                    PromptStyle::Plain => PromptStyle::GraphName,
+                    PromptStyle::GraphName => PromptStyle::Plain,
+                };
+            }
             ShellCommand::Query(query) => match graph.query(query).execute() {
                 Ok(result) => print_result(result),
                 Err(error) => println!("ERROR: {error}"),
@@ -185,8 +202,16 @@ fn classify_command(command: &str) -> ShellCommand<'_> {
         ".help" => ShellCommand::Help,
         ".intro" => ShellCommand::Intro,
         ".list" => ShellCommand::List,
+        ".prompt" => ShellCommand::Prompt,
         _ if command.starts_with('.') => ShellCommand::Invalid(command),
         _ => ShellCommand::Query(command),
+    }
+}
+
+fn format_prompt(prompt_style: PromptStyle, graph_name: &str) -> String {
+    match prompt_style {
+        PromptStyle::Plain => PLAIN_PROMPT.to_string(),
+        PromptStyle::GraphName => format!("falkordb ({graph_name})> "),
     }
 }
 
@@ -349,6 +374,7 @@ mod tests {
         assert!(matches!(classify_command(".help"), ShellCommand::Help));
         assert!(matches!(classify_command(".intro"), ShellCommand::Intro));
         assert!(matches!(classify_command(".list"), ShellCommand::List));
+        assert!(matches!(classify_command(".prompt"), ShellCommand::Prompt));
         assert!(matches!(
             classify_command(".bogus"),
             ShellCommand::Invalid(".bogus")
@@ -400,5 +426,14 @@ mod tests {
         let lines = format_item_lines(Some("n"), FalkorValue::I64(42));
 
         assert_eq!(lines, vec!["I64", "alias: n", "value: 42"]);
+    }
+
+    #[test]
+    fn formats_prompt() {
+        assert_eq!(format_prompt(PromptStyle::Plain, "Shell"), "falkordb> ");
+        assert_eq!(
+            format_prompt(PromptStyle::GraphName, "Shell"),
+            "falkordb (Shell)> "
+        );
     }
 }
