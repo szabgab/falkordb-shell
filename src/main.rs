@@ -13,6 +13,7 @@ use std::{
 
 const HISTORY_FILE_NAME: &str = ".falkordb_shell_history";
 const PROMPT: &str = "falkordb> ";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HELP: &str = r#"
 .help, - Show this help page.
 .exit, .quit - Quit the REPL.
@@ -58,7 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .build()?;
     let mut graph = client.select_graph(args.graph);
 
-    println!("Welcome to the interactive FalkorDB shell.");
+    println!("Welcome to the interactive FalkorDB shell v{VERSION}.");
     println!("Type .help to see the help.");
     let shell_result = run_shell(&mut editor, &client, &mut graph);
     save_history(&mut editor, &history_file);
