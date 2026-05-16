@@ -13,6 +13,7 @@ use std::{
 
 const HISTORY_FILE_NAME: &str = ".falkordb_shell_history";
 const PROMPT: &str = "falkordb> ";
+const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HELP: &str = r#"
 .help, - Show this help page.
@@ -28,6 +29,7 @@ CREATE (:Person {name: "Alice"})
 "#;
 
 #[derive(Debug, Parser)]
+#[command(name = PROJECT_NAME, version = VERSION)]
 struct Args {
     #[arg(long, default_value = "localhost")]
     host: String,

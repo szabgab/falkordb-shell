@@ -20,5 +20,4 @@
 * .stats Show some stats about the current graph.
 * .list can it show the size of each graph? (e.g. number of nodes, number of edges?)
 * List nodes (types) and their count. Lost edges (types) and their count.
-* --version
 
