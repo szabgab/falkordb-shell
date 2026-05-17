@@ -8,6 +8,7 @@
 * `git push`
 * `git tag -a v0.2.0 -m "publish version v0.2.0"`
 * `git push --tags`
+* Pushing a tag starting with `v` triggers GitHub Actions to verify the tag matches `Cargo.toml`, build binaries for Linux, macOS, and Windows, and publish a GitHub release with those assets.
 * `cargo publish`
 
 
@@ -24,5 +25,4 @@
 * Separate the tests to their own file.
 * Add GitHub Actions to run the tests.
 * Add GitHub Actions to generate executables for Linux, macOS, and Windows when we push out a tag starting with v.
-
 
