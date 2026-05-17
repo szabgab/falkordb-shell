@@ -14,3 +14,5 @@ homepage = "https://falkordb.code-maven.com/"
 clap = { version = "4.6.1", features = ["derive"] }
 falkordb = "0.2.1"
 rustyline = "18"
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"

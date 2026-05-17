@@ -4,11 +4,13 @@ use falkordb::{
     SyncGraph,
 };
 use rustyline::{CompletionType, Config, DefaultEditor, error::ReadlineError};
+use serde::Deserialize;
 use std::{
     collections::HashMap,
     error::Error,
     fmt::Write as _,
     path::{Path, PathBuf},
+    sync::OnceLock,
 };
 
 const HISTORY_FILE_NAME: &str = ".falkordb_shell_history";
@@ -25,10 +27,15 @@ const HELP: &str = r#"
 .prompt - Toggle between plain and graph-aware prompts.
 .stats - Show graph statistics for the current graph.
 "#;
-const INTRO: &str = r#"
-# Create a `Node` with the `Person` label (type) and the `name` attribute (property)
-CREATE (:Person {name: "Alice"})
-"#;
+
+const TUTORIAL_YAML: &str = include_str!("../tutorial.yaml");
+static TUTORIAL: OnceLock<Vec<TutorialStep>> = OnceLock::new();
+
+#[derive(Debug, Deserialize)]
+struct TutorialStep {
+    text: String,
+    code: String,
+}
 
 #[derive(Debug, Parser)]
 #[command(name = PROJECT_NAME, version = VERSION)]
@@ -159,7 +166,7 @@ fn run_shell(
                 println!("{HELP}");
             }
             ShellCommand::Intro => {
-                println!("{INTRO}");
+                println!("{}", render_tutorial());
             }
             ShellCommand::Invalid(command) => {
                 println!("ERROR: unknown command: {command}");
@@ -231,6 +238,33 @@ fn classify_command(command: &str) -> ShellCommand<'_> {
 
 fn current_graph_name(graph: &Option<SyncGraph>) -> Option<&str> {
     graph.as_ref().map(SyncGraph::graph_name)
+}
+
+fn tutorial_steps() -> &'static [TutorialStep] {
+    TUTORIAL
+        .get_or_init(|| {
+            serde_yaml::from_str(TUTORIAL_YAML).expect("embedded tutorial.yaml must be valid")
+        })
+        .as_slice()
+}
+
+fn render_tutorial() -> String {
+    let mut rendered = String::new();
+
+    for (index, step) in tutorial_steps().iter().enumerate() {
+        if index > 0 {
+            rendered.push_str("\n\n");
+        }
+        let _ = write!(
+            &mut rendered,
+            "{}. {}",
+            index + 1,
+            step.text.replace('\n', "\n   ")
+        );
+        let _ = write!(&mut rendered, "\n   {}", step.code);
+    }
+
+    rendered
 }
 
 fn format_prompt(prompt_style: PromptStyle, graph_name: Option<&str>) -> String {
@@ -556,5 +590,28 @@ mod tests {
             "falkordb (Shell)> "
         );
         assert_eq!(format_prompt(PromptStyle::GraphName, None), "falkordb> ");
+    }
+
+    #[test]
+    fn renders_embedded_tutorial() {
+        let tutorial = render_tutorial();
+
+        assert!(tutorial.contains(
+            "1. Create a `Node` with the `Person` label (type) and the `name` attribute (property)"
+        ));
+        assert!(tutorial.contains(r#"   CREATE (:Person {name: "Alice"})"#));
+        assert!(tutorial.contains("12. Delete all the nodes (and thus all the relationships)"));
+        assert!(tutorial.contains("   MATCH (n) DETACH DELETE n"));
+    }
+
+    #[test]
+    fn parses_embedded_tutorial_yaml() {
+        let tutorial = tutorial_steps();
+
+        assert_eq!(tutorial.len(), 12);
+        assert_eq!(
+            tutorial.first().map(|step| step.code.as_str()),
+            Some(r#"CREATE (:Person {name: "Alice"})"#)
+        );
     }
 }
