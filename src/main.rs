@@ -582,12 +582,12 @@ mod tests {
     #[test]
     fn formats_prompt() {
         assert_eq!(
-            format_prompt(PromptStyle::Plain, Some("Shell")),
+            format_prompt(PromptStyle::Plain, Some("TestGraph")),
             "falkordb> "
         );
         assert_eq!(
-            format_prompt(PromptStyle::GraphName, Some("Shell")),
-            "falkordb (Shell)> "
+            format_prompt(PromptStyle::GraphName, Some("TestGraph")),
+            "falkordb (TestGraph)> "
         );
         assert_eq!(format_prompt(PromptStyle::GraphName, None), "falkordb> ");
     }

@@ -5,6 +5,7 @@ This repository contains a Rust command-line REPL for FalkorDB.
 ## Project structure
 
 - `src/main.rs` contains the application logic, REPL command handling, formatting helpers, and unit tests.
+- `tests/cli.rs` contains CLI integration tests that exercise the binary against a FalkorDB server.
 - `README.md` documents installation, startup, and user-facing shell behavior.
 - `CONTRIBUTING.md` contains release steps and the current backlog/TODO items.
 
@@ -27,6 +28,7 @@ This repository contains a Rust command-line REPL for FalkorDB.
   - `classify_command`
   - `run_shell`
   - unit tests in `src/main.rs`
+- Keep CLI integration tests isolated: use disposable graph names and clean them up after each test.
 - For output changes, keep formatting deterministic because tests assert exact strings.
 - Reuse the existing value-formatting helpers before introducing new rendering paths.
 
