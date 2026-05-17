@@ -57,7 +57,7 @@ def build_page(
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{html.escape(title)} {html.escape(version)}</title>
+    <title>{html.escape(title)}</title>
     <style>
       :root {{
         color-scheme: light dark;
