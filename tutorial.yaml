@@ -1,0 +1,40 @@
+- text: Create a `Node` with the `Person` label (type) and the `name` attribute (property)
+  code: CREATE (:Person {name: "Alice"})
+- text: |
+    Create another `Node` of type `Person`, set `p` as an alias to the created node and return it.
+    Later we'll be able to reuse this alias either inside the command or in the client language.
+  code: CREATE (p:Person {name: "Bob", email: "bob@example.org"}) RETURN p
+- text: Create a `Node` of type `Article`.
+  code: CREATE (a:Article {title: "Introduction for FalkorDB"}) RETURN a
+- text: |
+    If we (mistakenly) leave out the colon `:` we create a `Node` without a label
+    In this case `Person` is the alias that was not used to return the Node.
+  code: CREATE (Person {name: "Clark"})
+
+- text: Create a link (edge, relationship) from Alice to Bob called `KNOWS`. (Alice knows Bob)
+  code: MATCH (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'}) MERGE (a)-[:KNOWS]->(b)
+- text: Create another type of link between `Alice` and that `Article`.
+  code: MATCH (p:Person {name: 'Alice'}), (a: Article) WHERE ID(a) = 0 MERGE (p)-[:published]->(a)
+
+- text: Return all the Nodes.
+  code: MATCH (p) RETURN p
+
+- text: Return all the Nodes with `Person` label
+  code: MATCH (p:Person) RETURN p
+
+- text: |
+    Instead of changing the existing Node
+    This will create another `Node` of type `Person` with name `Alice`.
+    It is probably not a good idea.
+  code: CREATE (p:Person {name: "Alice", email: "alice@example.org"}) RETURN p
+
+- text: List all the Alice-es
+  code: MATCH (p:Person, {name: "Alice"}) RETURN p
+
+- text: |
+    Update all the Person Nodes where the name is Alice adding a new attribute
+    As we have 2 nodes mathching, this will update both.
+  code: MATCH (p:Person {name: 'Alice'}) SET p.age = 42 RETURN p
+
+- text: Delete all the nodes (and thus all the relationships)
+  code: MATCH (n) DETACH DELETE n
