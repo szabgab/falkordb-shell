@@ -34,7 +34,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tag", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--release-date", required=True)
-    parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     return parser.parse_args()
 
 
@@ -84,7 +83,7 @@ def main() -> None:
     help_text = DEFAULT_HELP_FILE.read_text(encoding="utf-8").strip()
     body_html = markdown.markdown(readme_body, extensions=["fenced_code", "tables"])
     page = render_page(
-        template_path=args.template,
+        template_path=DEFAULT_TEMPLATE,
         title=title,
         body_html=body_html,
         version=args.version,
