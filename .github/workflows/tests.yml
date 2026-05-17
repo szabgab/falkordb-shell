@@ -155,12 +155,12 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Install site generator dependency
-        run: python -m pip install --upgrade markdown
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
 
       - name: Generate release site
         run: |
-          python scripts/build_release_site.py \
+          uv run --script scripts/build_release_site.py \
             --readme README.md \
             --output site/index.html \
             --repo "${{ github.repository }}" \

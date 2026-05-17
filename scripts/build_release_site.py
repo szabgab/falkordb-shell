@@ -1,11 +1,18 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "jinja2",
+#   "markdown",
+# ]
+# ///
 
 from __future__ import annotations
 
 import argparse
-import html
 from pathlib import Path
 
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 import markdown
 
 ASSETS = (
@@ -13,6 +20,7 @@ ASSETS = (
     ("macOS", "falkordb-shell-macos"),
     ("Windows (x86_64)", "falkordb-shell-windows-x86_64.exe"),
 )
+DEFAULT_TEMPLATE = Path(__file__).with_name("templates") / "release_site.html.j2"
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,6 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tag", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--release-date", required=True)
+    parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     return parser.parse_args()
 
 
@@ -35,101 +44,48 @@ def split_title(readme_text: str) -> tuple[str, str]:
     return "FalkorDB Shell", readme_text
 
 
-def render_downloads(repo: str, tag: str) -> str:
+def release_assets(repo: str, tag: str) -> list[dict[str, str]]:
     base_url = f"https://github.com/{repo}/releases/download/{tag}"
-    items = "\n".join(
-        f'          <li><a href="{html.escape(f"{base_url}/{asset}")}">{html.escape(label)}</a></li>'
+    return [
+        {"label": label, "url": f"{base_url}/{asset}"}
         for label, asset in ASSETS
-    )
-    return f"<ul>\n{items}\n        </ul>"
+    ]
 
 
-def build_page(
+def render_page(
     *,
+    template_path: Path,
     title: str,
     body_html: str,
     version: str,
     release_date: str,
-    downloads_html: str,
+    downloads: list[dict[str, str]],
 ) -> str:
-    return f"""<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{html.escape(title)}</title>
-    <style>
-      :root {{
-        color-scheme: light dark;
-        font-family: system-ui, sans-serif;
-        line-height: 1.5;
-      }}
-      body {{
-        margin: 0;
-        background: #0f172a;
-        color: #e2e8f0;
-      }}
-      main {{
-        max-width: 52rem;
-        margin: 0 auto;
-        padding: 2rem 1.25rem 4rem;
-      }}
-      a {{
-        color: #7dd3fc;
-      }}
-      .hero, .card {{
-        background: #111827;
-        border: 1px solid #334155;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-      }}
-      .meta {{
-        color: #cbd5e1;
-      }}
-      code, pre {{
-        background: #020617;
-        border-radius: 8px;
-      }}
-      code {{
-        padding: 0.15rem 0.35rem;
-      }}
-      pre {{
-        padding: 1rem;
-        overflow-x: auto;
-      }}
-    </style>
-  </head>
-  <body>
-    <main>
-      <section class="hero">
-        <h1>{html.escape(title)}</h1>
-        <p class="meta">Version <strong>{html.escape(version)}</strong> released on <strong>{html.escape(release_date)}</strong>.</p>
-      </section>
-      <section class="card">
-        <h2>Downloads</h2>
-        {downloads_html}
-      </section>
-      <section class="card">
-        {body_html}
-      </section>
-    </main>
-  </body>
-</html>
-"""
+    environment = Environment(
+        loader=FileSystemLoader(template_path.parent),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
+    template = environment.get_template(template_path.name)
+    return template.render(
+        title=title,
+        body_html=body_html,
+        version=version,
+        release_date=release_date,
+        downloads=downloads,
+    )
 
 
 def main() -> None:
     args = parse_args()
     title, readme_body = split_title(args.readme.read_text(encoding="utf-8"))
     body_html = markdown.markdown(readme_body, extensions=["fenced_code", "tables"])
-    downloads_html = render_downloads(args.repo, args.tag)
-    page = build_page(
+    page = render_page(
+        template_path=args.template,
         title=title,
         body_html=body_html,
         version=args.version,
         release_date=args.release_date,
-        downloads_html=downloads_html,
+        downloads=release_assets(args.repo, args.tag),
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(page, encoding="utf-8")

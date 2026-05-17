@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }}</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+        line-height: 1.5;
+      }
+      body {
+        margin: 0;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      main {
+        max-width: 52rem;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      a {
+        color: #7dd3fc;
+      }
+      .hero, .card {
+        background: #111827;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      .meta {
+        color: #cbd5e1;
+      }
+      code, pre {
+        background: #020617;
+        border-radius: 8px;
+      }
+      code {
+        padding: 0.15rem 0.35rem;
+      }
+      pre {
+        padding: 1rem;
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <h1>{{ title }}</h1>
+        <p class="meta">Version <strong>{{ version }}</strong> released on <strong>{{ release_date }}</strong>.</p>
+      </section>
+      <section class="card">
+        <h2>Downloads</h2>
+        <ul>
+          {% for download in downloads %}
+          <li><a href="{{ download.url }}">{{ download.label }}</a></li>
+          {% endfor %}
+        </ul>
+      </section>
+      <section class="card">
+        {{ body_html | safe }}
+      </section>
+    </main>
+  </body>
+</html>
