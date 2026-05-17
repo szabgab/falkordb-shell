@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <base href="{{ base_url }}">
     <title>{{ title }}</title>
     <style>
       :root {
@@ -51,6 +52,7 @@
       <section class="hero">
         <h1>{{ title }}</h1>
         <p class="meta">Version <strong>{{ version }}</strong> released on <strong>{{ release_date }}</strong>.</p>
+        <p><a href="{{ repo_url }}">Repository: {{ repo }}</a></p>
       </section>
       <section class="card">
         <h2>Downloads</h2>

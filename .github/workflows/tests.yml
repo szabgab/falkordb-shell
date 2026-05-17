@@ -162,6 +162,7 @@ jobs:
         run: |
           uv run --script scripts/build_release_site.py \
             --output site/index.html \
+            --base-url "https://falkordb-shell.code-maven.com/" \
             --repo "${{ github.repository }}" \
             --tag "${{ github.ref_name }}" \
             --version "${{ needs.verify-release-tag.outputs.version }}" \

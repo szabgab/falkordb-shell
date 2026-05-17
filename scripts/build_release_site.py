@@ -30,6 +30,7 @@ def parse_args() -> argparse.Namespace:
         description="Build the GitHub Pages release site from README.md."
     )
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--base-url", required=True)
     parser.add_argument("--repo", required=True)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--version", required=True)
@@ -56,6 +57,8 @@ def render_page(
     *,
     template_path: Path,
     title: str,
+    base_url: str,
+    repo: str,
     body_html: str,
     version: str,
     release_date: str,
@@ -69,6 +72,9 @@ def render_page(
     template = environment.get_template(template_path.name)
     return template.render(
         title=title,
+        base_url=base_url,
+        repo=repo,
+        repo_url=f"https://github.com/{repo}",
         body_html=body_html,
         version=version,
         release_date=release_date,
@@ -85,6 +91,8 @@ def main() -> None:
     page = render_page(
         template_path=DEFAULT_TEMPLATE,
         title=title,
+        base_url=args.base_url,
+        repo=args.repo,
         body_html=body_html,
         version=args.version,
         release_date=args.release_date,
