@@ -1,0 +1,42 @@
+name: Tests
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-test:
+    runs-on: ubuntu-latest
+    services:
+      falkordb:
+        image: falkordb/falkordb:latest
+        ports:
+          - 6379:6379
+    env:
+      FALKORDB_HOST: 127.0.0.1
+      FALKORDB_PORT: 6379
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Wait for FalkorDB
+        run: |
+          for _ in {1..30}; do
+            if bash -c 'echo > /dev/tcp/127.0.0.1/6379' 2>/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "FalkorDB did not become ready in time" >&2
+          exit 1
+
+      - name: Run tests
+        run: cargo test --quiet
