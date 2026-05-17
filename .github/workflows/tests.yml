@@ -161,7 +161,6 @@ jobs:
       - name: Generate release site
         run: |
           uv run --script scripts/build_release_site.py \
-            --readme README.md \
             --output site/index.html \
             --repo "${{ github.repository }}" \
             --tag "${{ github.ref_name }}" \

@@ -22,13 +22,13 @@ ASSETS = (
 )
 DEFAULT_TEMPLATE = Path(__file__).with_name("templates") / "release_site.html.j2"
 DEFAULT_HELP_FILE = Path(__file__).resolve().parent.parent / "help.txt"
+DEFAULT_README_FILE = Path(__file__).resolve().parent.parent / "README.md"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Build the GitHub Pages release site from README.md."
     )
-    parser.add_argument("--readme", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--repo", required=True)
     parser.add_argument("--tag", required=True)
@@ -79,7 +79,7 @@ def render_page(
 
 def main() -> None:
     args = parse_args()
-    title, readme_body = split_title(args.readme.read_text(encoding="utf-8"))
+    title, readme_body = split_title(DEFAULT_README_FILE.read_text(encoding="utf-8"))
     help_text = DEFAULT_HELP_FILE.read_text(encoding="utf-8").strip()
     body_html = markdown.markdown(readme_body, extensions=["fenced_code", "tables"])
     page = render_page(
