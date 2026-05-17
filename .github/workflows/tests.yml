@@ -19,7 +19,7 @@ jobs:
       FALKORDB_PORT: 6379
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -48,7 +48,7 @@ jobs:
       version: ${{ steps.verify.outputs.version }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Verify tag matches Cargo.toml version
         id: verify
@@ -89,7 +89,7 @@ jobs:
             binary_name: falkordb-shell.exe
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -107,7 +107,7 @@ jobs:
           cp "target/release/${{ matrix.binary_name }}" "dist/${{ matrix.asset_name }}"
 
       - name: Upload release asset
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.asset_name }}
           path: dist/${{ matrix.asset_name }}
@@ -123,14 +123,14 @@ jobs:
       contents: write
     steps:
       - name: Download release assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: release-*
           merge-multiple: true
           path: release-assets
 
       - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: v${{ needs.verify-release-tag.outputs.version }}
