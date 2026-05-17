@@ -21,6 +21,7 @@ ASSETS = (
     ("Windows (x86_64)", "falkordb-shell-windows-x86_64.exe"),
 )
 DEFAULT_TEMPLATE = Path(__file__).with_name("templates") / "release_site.html.j2"
+DEFAULT_HELP_FILE = Path(__file__).resolve().parent.parent / "help.txt"
 
 
 def parse_args() -> argparse.Namespace:
@@ -60,6 +61,7 @@ def render_page(
     version: str,
     release_date: str,
     downloads: list[dict[str, str]],
+    help_text: str,
 ) -> str:
     environment = Environment(
         loader=FileSystemLoader(template_path.parent),
@@ -72,12 +74,14 @@ def render_page(
         version=version,
         release_date=release_date,
         downloads=downloads,
+        help_text=help_text,
     )
 
 
 def main() -> None:
     args = parse_args()
     title, readme_body = split_title(args.readme.read_text(encoding="utf-8"))
+    help_text = DEFAULT_HELP_FILE.read_text(encoding="utf-8").strip()
     body_html = markdown.markdown(readme_body, extensions=["fenced_code", "tables"])
     page = render_page(
         template_path=args.template,
@@ -86,6 +90,7 @@ def main() -> None:
         version=args.version,
         release_date=args.release_date,
         downloads=release_assets(args.repo, args.tag),
+        help_text=help_text,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(page, encoding="utf-8")
