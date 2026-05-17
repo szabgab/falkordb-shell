@@ -1,0 +1,8 @@
+.help, - Show this help page.
+.exit, .quit - Quit the REPL.
+.intro - Introduction to the OpenCyper commands.
+.graph - Show the current graph.
+.graph NAME - Switch to the selected graph.
+.list - List all graph names in the database.
+.prompt - Toggle between plain and graph-aware prompts.
+.stats - Show graph statistics for the current graph.

@@ -17,16 +17,7 @@ const HISTORY_FILE_NAME: &str = ".falkordb_shell_history";
 const PLAIN_PROMPT: &str = "falkordb> ";
 const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const HELP: &str = r#"
-.help, - Show this help page.
-.exit, .quit - Quit the REPL.
-.intro - Introduction to the OpenCyper commands.
-.graph - Show the current graph.
-.graph NAME - Switch to the selected graph.
-.list - List all graph names in the database.
-.prompt - Toggle between plain and graph-aware prompts.
-.stats - Show graph statistics for the current graph.
-"#;
+const HELP: &str = include_str!("../help.txt");
 
 const TUTORIAL_YAML: &str = include_str!("../tutorial.yaml");
 static TUTORIAL: OnceLock<Vec<TutorialStep>> = OnceLock::new();
