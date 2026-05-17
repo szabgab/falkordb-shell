@@ -8,7 +8,7 @@ keywords = ["cli", "web", "database", "falkordb"]
 categories = ["database"]
 readme = "README.md"
 repository = "https://github.com/szabgab/falkordb-shell/"
-homepage = "https://falkordb.code-maven.com/"
+homepage = "https://falkordb-shell.code-maven.com/"
 
 [dependencies]
 clap = { version = "4.6.1", features = ["derive"] }
