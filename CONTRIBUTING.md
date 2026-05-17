@@ -21,3 +21,8 @@
 * List nodes (types) and their count. Lost edges (types) and their count.
 * Load some plain text file.
 * Dump data to some file format.
+* Separate the tests to their own file.
+* Add GitHub Actions to run the tests.
+* Add GitHub Actions to generate executables for Linux, macOS, and Windows when we push out a tag starting with v.
+
+
