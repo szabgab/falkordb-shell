@@ -17,7 +17,7 @@
     * Show a command, let the user execute it (or shall we don that?).
     * Shall we allow the user to execute other commands?
     * Shall we let the user to stop / continue the tutorial or to start from the beginning again?
-* .stats Show some stats about the current graph.
 * .list can it show the size of each graph? (e.g. number of nodes, number of edges?)
 * List nodes (types) and their count. Lost edges (types) and their count.
-
+* Load some plain text file.
+* Dump data to some file format.

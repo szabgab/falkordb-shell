@@ -23,6 +23,7 @@ const HELP: &str = r#"
 .graph NAME - Switch to the selected graph.
 .list - List all graph names in the database.
 .prompt - Toggle between plain and graph-aware prompts.
+.stats - Show graph statistics for the current graph.
 "#;
 const INTRO: &str = r#"
 # Create a `Node` with the `Person` label (type) and the `name` attribute (property)
@@ -49,6 +50,7 @@ enum ShellCommand<'a> {
     Invalid(&'a str),
     List,
     Prompt,
+    Stats,
     Query(&'a str),
 }
 
@@ -182,12 +184,23 @@ fn run_shell(
                     PromptStyle::GraphName => PromptStyle::Plain,
                 };
             }
+            ShellCommand::Stats => match graph {
+                Some(graph) => match print_stats(graph) {
+                    Ok(()) => {}
+                    Err(error) => println!("ERROR: {error}"),
+                },
+                None => println!(
+                    "ERROR: no graph selected. Use `.list` to list available graphs and use `.graph NAME` to select one."
+                ),
+            },
             ShellCommand::Query(query) => match graph {
                 Some(graph) => match graph.query(query).execute() {
                     Ok(result) => print_result(result),
                     Err(error) => println!("ERROR: {error}"),
                 },
-                None => println!("ERROR: no graph selected. Use `.list` to list available graphs and use `.graph NAME` to select one."),
+                None => println!(
+                    "ERROR: no graph selected. Use `.list` to list available graphs and use `.graph NAME` to select one."
+                ),
             },
         }
     }
@@ -210,6 +223,7 @@ fn classify_command(command: &str) -> ShellCommand<'_> {
         ".intro" => ShellCommand::Intro,
         ".list" => ShellCommand::List,
         ".prompt" => ShellCommand::Prompt,
+        ".stats" => ShellCommand::Stats,
         _ if command.starts_with('.') => ShellCommand::Invalid(command),
         _ => ShellCommand::Query(command),
     }
@@ -238,6 +252,94 @@ fn print_result(result: QueryResult<falkordb::LazyResultSet<'_>>) {
 
     for line in lines {
         println!("{line}");
+    }
+}
+
+fn print_stats(graph: &mut SyncGraph) -> Result<(), String> {
+    let total_nodes = query_single_i64(graph, "MATCH (n) RETURN count(n)")?;
+    let total_edges = query_single_i64(graph, "MATCH ()-[r]->() RETURN count(r)")?;
+    let node_types = query_named_counts(
+        graph,
+        "MATCH (n)
+         UNWIND CASE
+             WHEN size(labels(n)) = 0 THEN ['(unlabeled)']
+             ELSE labels(n)
+         END AS label
+         RETURN label, count(*) AS count
+         ORDER BY label",
+    )?;
+    let edge_types = query_named_counts(
+        graph,
+        "MATCH ()-[r]->()
+         RETURN type(r), count(*) AS count
+         ORDER BY type(r)",
+    )?;
+
+    println!("Total nodes: {total_nodes}");
+    println!("Total edges: {total_edges}");
+    print_named_counts("Node types", &node_types);
+    print_named_counts("Edge types", &edge_types);
+
+    Ok(())
+}
+
+fn query_single_i64(graph: &mut SyncGraph, query: &str) -> Result<i64, String> {
+    let result = graph
+        .query(query)
+        .execute()
+        .map_err(|error| error.to_string())?;
+    let mut rows = result.data;
+    let row = rows
+        .next()
+        .ok_or_else(|| format!("query returned no rows: {query}"))?;
+    let value = row
+        .into_iter()
+        .next()
+        .ok_or_else(|| format!("query returned no columns: {query}"))?;
+    value
+        .to_i64()
+        .ok_or_else(|| format!("query did not return an integer: {query}"))
+}
+
+fn query_named_counts(graph: &mut SyncGraph, query: &str) -> Result<Vec<(String, i64)>, String> {
+    let result = graph
+        .query(query)
+        .execute()
+        .map_err(|error| error.to_string())?;
+    let mut counts = Vec::new();
+
+    for row in result.data {
+        let [name, count]: [FalkorValue; 2] = row
+            .try_into()
+            .map_err(|_| format!("query did not return two columns: {query}"))?;
+
+        let name = match name {
+            FalkorValue::String(name) => name,
+            other => {
+                return Err(format!(
+                    "query did not return a string label/type: {}",
+                    format_value(&other)
+                ));
+            }
+        };
+        let count = count
+            .to_i64()
+            .ok_or_else(|| format!("query did not return an integer count: {query}"))?;
+        counts.push((name, count));
+    }
+
+    Ok(counts)
+}
+
+fn print_named_counts(title: &str, counts: &[(String, i64)]) {
+    println!("{title}:");
+    if counts.is_empty() {
+        println!("  (none)");
+        return;
+    }
+
+    for (name, count) in counts {
+        println!("  {name}: {count}");
     }
 }
 
@@ -389,6 +491,7 @@ mod tests {
         assert!(matches!(classify_command(".intro"), ShellCommand::Intro));
         assert!(matches!(classify_command(".list"), ShellCommand::List));
         assert!(matches!(classify_command(".prompt"), ShellCommand::Prompt));
+        assert!(matches!(classify_command(".stats"), ShellCommand::Stats));
         assert!(matches!(
             classify_command(".bogus"),
             ShellCommand::Invalid(".bogus")
