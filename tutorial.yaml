@@ -1,12 +1,18 @@
-- text: Create a `Node` with the `Person` label (type) and the `name` attribute (property)
+- text: Create a `Node` with the `Person` `label` (type) and the `name` attribute (property).
   code: >-
     CREATE (:Person {name: "Alice"})
 - text: |
-    Create another `Node` of type `Person`, set `p` as an alias to the created node and return it.
-    Later we'll be able to reuse this alias either inside the command or in the client language.
+    Return all the Nodes.
+    Remember this command and run once in a while during the tutorial.
+    If you don't remember it, you can always press the Up arrow ⬆️  several times to go back to the previous commands.
+  code: >-
+    MATCH (p) RETURN p
+- text: |
+    Create another `Node` of type `Person`, set `p` as an `alias` to the created Node and return it.
+    In a later example you'll see how to reuse this alias either inside the command or in the client language.
   code: >-
     CREATE (p:Person {name: "Bob", email: "bob@example.org"}) RETURN p
-- text: Create a `Node` of type `Article`.
+- text: Create a `Node` of type `Article` with an attribute `title`.
   code: >-
     CREATE (a:Article {title: "Introduction for FalkorDB"}) RETURN a
 - text: |
