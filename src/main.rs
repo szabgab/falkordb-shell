@@ -17,6 +17,7 @@ const HISTORY_FILE_NAME: &str = ".falkordb_shell_history";
 const PLAIN_PROMPT: &str = "falkordb> ";
 const TUTORIAL_GRAPH_NAME: &str = "Tutorial";
 const TUTORIAL_STEP_PROMPT: &str = "Press ENTER to run, Ctrl-C to stop> ";
+const TUTORIAL_DIVIDER: &str = "--------------------------------------------------";
 const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HELP: &str = include_str!("../help.txt");
@@ -258,14 +259,17 @@ fn run_tutorial(
 
     for (index, step) in tutorial_steps().iter().enumerate() {
         println!();
-        println!("{}", render_tutorial_step(index + 1, step));
+        println!(
+            "{}",
+            render_tutorial_step(index + 1, tutorial_steps().len(), step)
+        );
 
         if !wait_for_tutorial_step(editor)? {
             println!("Tutorial stopped.");
             return Ok(());
         }
 
-        if let Err(error) = execute_query(tutorial_graph, &step.code) {
+        if let Err(error) = execute_tutorial_query(tutorial_graph, &step.code) {
             println!("ERROR: {error}");
             return Ok(());
         }
@@ -289,15 +293,18 @@ fn wait_for_tutorial_step(editor: &mut DefaultEditor) -> Result<bool, ReadlineEr
     }
 }
 
-fn render_tutorial_step(step_number: usize, step: &TutorialStep) -> String {
+fn render_tutorial_step(step_number: usize, total_steps: usize, step: &TutorialStep) -> String {
     let mut rendered = String::new();
-    let _ = write!(
-        &mut rendered,
-        "{}. {}",
-        step_number,
-        step.text.replace('\n', "\n   ")
-    );
-    let _ = write!(&mut rendered, "\n   {}", step.code);
+    rendered.push_str(TUTORIAL_DIVIDER);
+    rendered.push('\n');
+    let _ = writeln!(&mut rendered, "Tutorial {step_number}/{total_steps}");
+    let _ = writeln!(&mut rendered, "Graph: {TUTORIAL_GRAPH_NAME}");
+    rendered.push_str("\nExplanation\n");
+    append_indented_block(&mut rendered, &step.text, "  ");
+    rendered.push_str("\n\nCommand\n");
+    append_indented_block(&mut rendered, &step.code, "  ");
+    rendered.push('\n');
+    rendered.push_str(TUTORIAL_DIVIDER);
 
     rendered
 }
@@ -333,12 +340,43 @@ fn execute_query(graph: &mut SyncGraph, query: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn execute_tutorial_query(graph: &mut SyncGraph, query: &str) -> Result<(), String> {
+    let result = graph
+        .query(query)
+        .execute()
+        .map_err(|error| error.to_string())?;
+    print_tutorial_result(result);
+    Ok(())
+}
+
 fn clear_graph(graph: &mut SyncGraph) -> Result<(), String> {
     graph
         .query("MATCH (n) DETACH DELETE n")
         .execute()
         .map(|_| ())
         .map_err(|error| error.to_string())
+}
+
+fn print_tutorial_result(result: QueryResult<falkordb::LazyResultSet<'_>>) {
+    let lines = format_result_lines(&result.header, result.data);
+    println!("Result");
+    if lines.is_empty() {
+        println!("  OK");
+        return;
+    }
+
+    for line in lines {
+        println!("  {line}");
+    }
+}
+
+fn append_indented_block(rendered: &mut String, text: &str, prefix: &str) {
+    for (index, line) in text.lines().enumerate() {
+        if index > 0 {
+            rendered.push('\n');
+        }
+        let _ = write!(rendered, "{prefix}{line}");
+    }
 }
 
 fn print_stats(graph: &mut SyncGraph) -> Result<(), String> {
@@ -649,12 +687,16 @@ mod tests {
 
     #[test]
     fn renders_embedded_tutorial() {
-        let tutorial = render_tutorial_step(1, &tutorial_steps()[0]);
+        let tutorial = render_tutorial_step(1, tutorial_steps().len(), &tutorial_steps()[0]);
 
+        assert!(tutorial.contains(TUTORIAL_DIVIDER));
+        assert!(tutorial.contains(&format!("Tutorial 1/{}", tutorial_steps().len())));
+        assert!(tutorial.contains("Explanation"));
         assert!(tutorial.contains(
-            "1. Create a `Node` with the `Person` label (type) and the `name` attribute (property)"
+            "  Create a `Node` with the `Person` label (type) and the `name` attribute (property)"
         ));
-        assert!(tutorial.contains(r#"   CREATE (:Person {name: "Alice"})"#));
+        assert!(tutorial.contains("Command"));
+        assert!(tutorial.contains(r#"  CREATE (:Person {name: "Alice"})"#));
     }
 
     #[test]

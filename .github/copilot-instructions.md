@@ -42,9 +42,10 @@ This repository contains a Rust command-line REPL for FalkorDB.
 - For `.tutorial` changes, preserve the current interactive tutorial design unless the task explicitly changes it:
   - switch to the `Tutorial` graph
   - clear the `Tutorial` graph before starting
-  - show one tutorial step at a time
+  - show one tutorial step at a time using framed step cards with progress information
   - wait for ENTER before executing the step
-  - execute the tutorial command through the same query/result formatting path used by normal queries
+  - render distinct `Explanation`, `Command`, and `Result` sections
+  - keep normal query output formatting unchanged outside tutorial mode
 - When changing tutorial content or help text, keep these files in sync:
   - `tutorial.yaml`
   - `help.txt`
