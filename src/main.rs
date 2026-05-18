@@ -25,6 +25,8 @@ const HISTORY_FILE_NAME: &str = ".falkordb_shell_history";
 const PLAIN_PROMPT: &str = "falkordb> ";
 const TUTORIAL_GRAPH_NAME: &str = "Tutorial";
 const TUTORIAL_STEP_PROMPT: &str = "Press ENTER to run, Ctrl-C to stop> ";
+const TUTORIAL_CONTINUE_PROMPT: &str = "Press ENTER to continue tutorial, Ctrl-C to stop> ";
+const TUTORIAL_NEXT_STEP_PROMPT: &str = "Press ENTER for next step, Ctrl-C to stop> ";
 const TUTORIAL_DIVIDER: &str = "--------------------------------------------------";
 const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -131,6 +133,13 @@ enum TutorialInput {
     ExecuteStep,
     ExecuteCommand(String),
     StopTutorial,
+}
+
+#[derive(Clone, Copy)]
+enum TutorialPhase {
+    ShowingStep,
+    AwaitingStep,
+    AwaitingNextStep,
 }
 
 #[derive(Clone, Copy)]
@@ -293,27 +302,39 @@ fn run_tutorial(
 
     for (index, step) in tutorial_steps().iter().enumerate() {
         ensure_tutorial_graph(client, graph, false);
-        println!();
-        println!(
-            "{}",
-            render_tutorial_step(index + 1, tutorial_steps().len(), step)
-        );
+        let mut phase = TutorialPhase::ShowingStep;
 
         loop {
-            match read_tutorial_input(editor)? {
+            if matches!(phase, TutorialPhase::ShowingStep) {
+                println!();
+                println!(
+                    "{}",
+                    render_tutorial_step(index + 1, tutorial_steps().len(), step)
+                );
+            }
+
+            match read_tutorial_input(editor, phase)? {
                 TutorialInput::ExecuteStep => {
-                    ensure_tutorial_graph(client, graph, false);
-                    editor.add_history_entry(step.code.as_str())?;
-                    if let Err(error) = execute_tutorial_query(
-                        graph
-                            .as_mut()
-                            .expect("tutorial graph should be selected before executing"),
-                        &step.code,
-                    ) {
-                        println!("ERROR: {error}");
-                        return Ok(ShellAction::Continue);
+                    match phase {
+                        TutorialPhase::ShowingStep => {
+                            ensure_tutorial_graph(client, graph, false);
+                            editor.add_history_entry(step.code.as_str())?;
+                            if let Err(error) = execute_tutorial_query(
+                                graph
+                                    .as_mut()
+                                    .expect("tutorial graph should be selected before executing"),
+                                &step.code,
+                            ) {
+                                println!("ERROR: {error}");
+                                return Ok(ShellAction::Continue);
+                            }
+                            phase = TutorialPhase::AwaitingNextStep;
+                        }
+                        TutorialPhase::AwaitingStep => {
+                            phase = TutorialPhase::ShowingStep;
+                        }
+                        TutorialPhase::AwaitingNextStep => break,
                     }
-                    break;
                 }
                 TutorialInput::ExecuteCommand(command) => {
                     editor.add_history_entry(command.as_str())?;
@@ -324,6 +345,9 @@ fn run_tutorial(
                     }
                     if current_graph_name(graph) != Some(TUTORIAL_GRAPH_NAME) {
                         ensure_tutorial_graph(client, graph, true);
+                    }
+                    if matches!(phase, TutorialPhase::ShowingStep) {
+                        phase = TutorialPhase::AwaitingStep;
                     }
                 }
                 TutorialInput::StopTutorial => {
@@ -338,9 +362,12 @@ fn run_tutorial(
     Ok(ShellAction::Continue)
 }
 
-fn read_tutorial_input(editor: &mut ShellEditor) -> Result<TutorialInput, ReadlineError> {
+fn read_tutorial_input(
+    editor: &mut ShellEditor,
+    phase: TutorialPhase,
+) -> Result<TutorialInput, ReadlineError> {
     loop {
-        match editor.readline(TUTORIAL_STEP_PROMPT) {
+        match editor.readline(tutorial_prompt(phase)) {
             Ok(line) if line.trim().is_empty() => return Ok(TutorialInput::ExecuteStep),
             Ok(line) => return Ok(TutorialInput::ExecuteCommand(line.trim().to_string())),
             Err(ReadlineError::Eof) | Err(ReadlineError::Interrupted) => {
@@ -528,6 +555,14 @@ fn render_tutorial_step(step_number: usize, total_steps: usize, step: &TutorialS
     rendered.push_str(TUTORIAL_DIVIDER);
 
     rendered
+}
+
+fn tutorial_prompt(phase: TutorialPhase) -> &'static str {
+    match phase {
+        TutorialPhase::ShowingStep => TUTORIAL_STEP_PROMPT,
+        TutorialPhase::AwaitingStep => TUTORIAL_CONTINUE_PROMPT,
+        TutorialPhase::AwaitingNextStep => TUTORIAL_NEXT_STEP_PROMPT,
+    }
 }
 
 fn format_prompt(prompt_style: PromptStyle, graph_name: Option<&str>) -> String {
@@ -927,6 +962,22 @@ mod tests {
         ));
         assert!(tutorial.contains("Command"));
         assert!(tutorial.contains(r#"  CREATE (:Person {name: "Alice"})"#));
+    }
+
+    #[test]
+    fn uses_distinct_tutorial_prompts() {
+        assert_eq!(
+            tutorial_prompt(TutorialPhase::ShowingStep),
+            "Press ENTER to run, Ctrl-C to stop> "
+        );
+        assert_eq!(
+            tutorial_prompt(TutorialPhase::AwaitingStep),
+            "Press ENTER to continue tutorial, Ctrl-C to stop> "
+        );
+        assert_eq!(
+            tutorial_prompt(TutorialPhase::AwaitingNextStep),
+            "Press ENTER for next step, Ctrl-C to stop> "
+        );
     }
 
     #[test]

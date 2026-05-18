@@ -1,7 +1,7 @@
 .help, - Show this help page.
 .delete NAME - Show graph size, ask for confirmation, then delete that graph.
 .exit, .quit - Quit the REPL.
-.tutorial - Run the interactive tutorial; ENTER runs the step, other commands are allowed too.
+.tutorial - Run the interactive tutorial; ENTER runs the step, then ENTER shows the next step. Other statements pause the tutorial until ENTER shows the pending step.
 .graph - Show the current graph.
 .graph NAME - Switch to the selected graph.
 .list - List all graph names in the database with node and edge counts.

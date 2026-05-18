@@ -50,8 +50,8 @@ This repository contains a Rust command-line REPL for FalkorDB.
   - switch to the `Tutorial` graph
   - clear the `Tutorial` graph before starting
   - show one tutorial step at a time using framed step cards with progress information
-  - blank ENTER executes the current step
-  - non-empty input should execute as a normal shell command and then return to the same tutorial step
+  - blank ENTER executes the current step, and the following blank ENTER reveals the next step
+  - non-empty input should execute as a normal shell command, show only its result, and wait for blank ENTER before revealing the pending tutorial step
   - render distinct `Explanation`, `Command`, and `Result` sections
   - keep normal query output formatting unchanged outside tutorial mode
 - When changing tutorial content or help text, keep these files in sync:
