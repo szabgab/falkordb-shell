@@ -36,6 +36,7 @@ const TUTORIAL_YAML: &str = include_str!("../tutorial.yaml");
 static TUTORIAL: OnceLock<Vec<TutorialStep>> = OnceLock::new();
 const DOT_COMMANDS: &[&str] = &[
     ".help",
+    ".delete",
     ".exit",
     ".quit",
     ".tutorial",
@@ -108,6 +109,7 @@ struct Args {
 }
 
 enum ShellCommand<'a> {
+    Delete(Option<&'a str>),
     Empty,
     Exit,
     Graph(Option<&'a str>),
@@ -229,6 +231,15 @@ fn run_shell(
 }
 
 fn classify_command(command: &str) -> ShellCommand<'_> {
+    if let Some(rest) = command.strip_prefix(".delete") {
+        let graph_name = rest.trim();
+        return if graph_name.is_empty() {
+            ShellCommand::Delete(None)
+        } else {
+            ShellCommand::Delete(Some(graph_name))
+        };
+    }
+
     if let Some(rest) = command.strip_prefix(".graph") {
         let graph_name = rest.trim();
         return if graph_name.is_empty() {
@@ -348,6 +359,10 @@ fn handle_command(
     command: &str,
 ) -> Result<ShellAction, Box<dyn Error>> {
     match classify_command(command) {
+        ShellCommand::Delete(graph_name) => {
+            delete_graph_with_confirmation(editor, client, graph, graph_name)?;
+            Ok(ShellAction::Continue)
+        }
         ShellCommand::Empty => Ok(ShellAction::Continue),
         ShellCommand::Exit => Ok(ShellAction::Exit),
         ShellCommand::Graph(graph_name) => {
@@ -437,6 +452,61 @@ fn ensure_tutorial_graph(
     if announce_switch {
         println!("Switched to graph: {TUTORIAL_GRAPH_NAME}");
     }
+}
+
+fn delete_graph_with_confirmation(
+    editor: &mut ShellEditor,
+    client: &FalkorSyncClient,
+    current_graph: &mut Option<SyncGraph>,
+    graph_name: Option<&str>,
+) -> Result<(), Box<dyn Error>> {
+    let Some(graph_name) = graph_name else {
+        println!("ERROR: usage: .delete NAME");
+        return Ok(());
+    };
+
+    let graphs = client.list_graphs()?;
+    if !graphs.iter().any(|name| name == graph_name) {
+        println!("ERROR: graph not found: {graph_name}");
+        return Ok(());
+    }
+
+    let (node_count, edge_count) = graph_counts(client, graph_name)?;
+    let prompt = format!(
+        "Delete graph '{graph_name}' with {node_count} nodes and {edge_count} edges? [y/N] "
+    );
+    let confirmed = match editor.readline(&prompt) {
+        Ok(answer) => is_confirmation(answer.trim()),
+        Err(ReadlineError::Eof) | Err(ReadlineError::Interrupted) => {
+            println!();
+            false
+        }
+        Err(error) => return Err(error.into()),
+    };
+
+    if !confirmed {
+        println!("Deletion cancelled.");
+        return Ok(());
+    }
+
+    let mut graph = client.select_graph(graph_name);
+    graph.delete()?;
+    if current_graph_name(current_graph) == Some(graph_name) {
+        *current_graph = None;
+    }
+    println!("Deleted graph: {graph_name}");
+    Ok(())
+}
+
+fn graph_counts(client: &FalkorSyncClient, graph_name: &str) -> Result<(i64, i64), String> {
+    let mut graph = client.select_graph(graph_name);
+    let node_count = query_single_i64(&mut graph, "MATCH (n) RETURN count(n)")?;
+    let edge_count = query_single_i64(&mut graph, "MATCH ()-[r]->() RETURN count(r)")?;
+    Ok((node_count, edge_count))
+}
+
+fn is_confirmation(answer: &str) -> bool {
+    matches!(answer, "y" | "Y" | "yes" | "YES" | "Yes")
 }
 
 fn render_tutorial_step(step_number: usize, total_steps: usize, step: &TutorialStep) -> String {
@@ -757,6 +827,14 @@ mod tests {
 
     #[test]
     fn classifies_meta_commands() {
+        assert!(matches!(
+            classify_command(".delete Demo"),
+            ShellCommand::Delete(Some("Demo"))
+        ));
+        assert!(matches!(
+            classify_command(".delete"),
+            ShellCommand::Delete(None)
+        ));
         assert!(matches!(classify_command(""), ShellCommand::Empty));
         assert!(matches!(classify_command(".help"), ShellCommand::Help));
         assert!(matches!(
@@ -867,5 +945,25 @@ mod tests {
         assert_eq!(start, 0);
         assert_eq!(candidates.len(), 1);
         assert_eq!(candidates[0].replacement, ".tutorial");
+    }
+
+    #[test]
+    fn completes_delete_command() {
+        let helper = ShellHelper;
+        let history = DefaultHistory::new();
+        let context = Context::new(&history);
+        let (_start, candidates) = helper.complete(".d", 2, &context).unwrap();
+
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].replacement, ".delete");
+    }
+
+    #[test]
+    fn recognizes_confirmation_answers() {
+        assert!(is_confirmation("y"));
+        assert!(is_confirmation("Yes"));
+        assert!(is_confirmation("YES"));
+        assert!(!is_confirmation(""));
+        assert!(!is_confirmation("n"));
     }
 }

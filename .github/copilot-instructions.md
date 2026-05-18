@@ -20,9 +20,10 @@ This repository contains a Rust command-line REPL for FalkorDB.
 - Prefer reusing messages printed over duplicating them.
 - Keep user-facing error messages explicit; do not silently ignore failures.
 - Preserve the current shell UX unless the task explicitly changes it:
-  - dot-prefixed meta commands such as `.help`, `.graph`, `.list`, `.prompt`, and `.stats`
+  - dot-prefixed meta commands such as `.help`, `.delete`, `.graph`, `.list`, `.prompt`, `.stats`, and `.tutorial`
   - query execution against the currently selected graph
   - history stored in `$HOME/.falkordb_shell_history`
+  - tab completion for built-in dot commands
 - Prefer compile-time embedded assets for built-in content:
   - `help.txt` is included with `include_str!`
   - `tutorial.yaml` is included with `include_str!` and parsed from YAML
@@ -35,10 +36,16 @@ This repository contains a Rust command-line REPL for FalkorDB.
 
 - For new meta commands, update all of these together:
   - `HELP`
+  - `DOT_COMMANDS`
   - `ShellCommand`
   - `classify_command`
   - `run_shell`
   - unit tests in `src/main.rs`
+- For `.delete` changes, preserve the current command design unless the task explicitly changes it:
+  - require a graph name
+  - show node and edge counts before confirmation
+  - ask for explicit confirmation before deleting
+  - clear the current graph selection if the deleted graph was selected
 - For `.tutorial` changes, preserve the current interactive tutorial design unless the task explicitly changes it:
   - switch to the `Tutorial` graph
   - clear the `Tutorial` graph before starting
