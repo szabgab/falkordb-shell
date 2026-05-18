@@ -15,6 +15,8 @@ use std::{
 
 const HISTORY_FILE_NAME: &str = ".falkordb_shell_history";
 const PLAIN_PROMPT: &str = "falkordb> ";
+const TUTORIAL_GRAPH_NAME: &str = "tutorial";
+const TUTORIAL_STEP_PROMPT: &str = "Press ENTER to run, Ctrl-C to stop> ";
 const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HELP: &str = include_str!("../help.txt");
@@ -157,7 +159,7 @@ fn run_shell(
                 println!("{HELP}");
             }
             ShellCommand::Intro => {
-                println!("{}", render_tutorial());
+                run_intro(editor, client, graph)?;
             }
             ShellCommand::Invalid(command) => {
                 println!("ERROR: unknown command: {command}");
@@ -192,8 +194,8 @@ fn run_shell(
                 ),
             },
             ShellCommand::Query(query) => match graph {
-                Some(graph) => match graph.query(query).execute() {
-                    Ok(result) => print_result(result),
+                Some(graph) => match execute_query(graph, query) {
+                    Ok(()) => {}
                     Err(error) => println!("ERROR: {error}"),
                 },
                 None => println!(
@@ -239,21 +241,65 @@ fn tutorial_steps() -> &'static [TutorialStep] {
         .as_slice()
 }
 
-fn render_tutorial() -> String {
-    let mut rendered = String::new();
+fn run_intro(
+    editor: &mut DefaultEditor,
+    client: &FalkorSyncClient,
+    graph: &mut Option<SyncGraph>,
+) -> Result<(), Box<dyn Error>> {
+    *graph = Some(client.select_graph(TUTORIAL_GRAPH_NAME));
+    println!("Switched to graph: {TUTORIAL_GRAPH_NAME}");
+
+    let Some(tutorial_graph) = graph.as_mut() else {
+        unreachable!("tutorial graph was just selected");
+    };
+
+    if let Err(error) = clear_graph(tutorial_graph) {
+        println!("ERROR: {error}");
+        return Ok(());
+    }
 
     for (index, step) in tutorial_steps().iter().enumerate() {
-        if index > 0 {
-            rendered.push_str("\n\n");
+        println!();
+        println!("{}", render_tutorial_step(index + 1, step));
+
+        if !wait_for_tutorial_step(editor)? {
+            println!("Tutorial stopped.");
+            return Ok(());
         }
-        let _ = write!(
-            &mut rendered,
-            "{}. {}",
-            index + 1,
-            step.text.replace('\n', "\n   ")
-        );
-        let _ = write!(&mut rendered, "\n   {}", step.code);
+
+        if let Err(error) = execute_query(tutorial_graph, &step.code) {
+            println!("ERROR: {error}");
+            return Ok(());
+        }
     }
+
+    println!("Tutorial completed.");
+    Ok(())
+}
+
+fn wait_for_tutorial_step(editor: &mut DefaultEditor) -> Result<bool, ReadlineError> {
+    loop {
+        match editor.readline(TUTORIAL_STEP_PROMPT) {
+            Ok(line) if line.trim().is_empty() => return Ok(true),
+            Ok(_) => println!("Press ENTER to run the tutorial command."),
+            Err(ReadlineError::Eof) | Err(ReadlineError::Interrupted) => {
+                println!();
+                return Ok(false);
+            }
+            Err(error) => return Err(error),
+        }
+    }
+}
+
+fn render_tutorial_step(step_number: usize, step: &TutorialStep) -> String {
+    let mut rendered = String::new();
+    let _ = write!(
+        &mut rendered,
+        "{}. {}",
+        step_number,
+        step.text.replace('\n', "\n   ")
+    );
+    let _ = write!(&mut rendered, "\n   {}", step.code);
 
     rendered
 }
@@ -278,6 +324,23 @@ fn print_result(result: QueryResult<falkordb::LazyResultSet<'_>>) {
     for line in lines {
         println!("{line}");
     }
+}
+
+fn execute_query(graph: &mut SyncGraph, query: &str) -> Result<(), String> {
+    let result = graph
+        .query(query)
+        .execute()
+        .map_err(|error| error.to_string())?;
+    print_result(result);
+    Ok(())
+}
+
+fn clear_graph(graph: &mut SyncGraph) -> Result<(), String> {
+    graph
+        .query("MATCH (n) DETACH DELETE n")
+        .execute()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
 }
 
 fn print_stats(graph: &mut SyncGraph) -> Result<(), String> {
@@ -585,14 +648,12 @@ mod tests {
 
     #[test]
     fn renders_embedded_tutorial() {
-        let tutorial = render_tutorial();
+        let tutorial = render_tutorial_step(1, &tutorial_steps()[0]);
 
         assert!(tutorial.contains(
             "1. Create a `Node` with the `Person` label (type) and the `name` attribute (property)"
         ));
         assert!(tutorial.contains(r#"   CREATE (:Person {name: "Alice"})"#));
-        assert!(tutorial.contains("12. Delete all the nodes (and thus all the relationships)"));
-        assert!(tutorial.contains("   MATCH (n) DETACH DELETE n"));
     }
 
     #[test]

@@ -58,7 +58,8 @@ fn shell_lists_and_reports_stats_for_random_graph() -> Result<(), Box<dyn Error>
 .stats
 .exit
 "#,
-    )? else {
+    )?
+    else {
         return Ok(());
     };
 
@@ -132,5 +133,10 @@ fn unique_graph_name() -> String {
         .as_nanos();
     let counter = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
 
-    format!("falkordb_shell_test_{}_{}_{}", process::id(), nanos, counter)
+    format!(
+        "falkordb_shell_test_{}_{}_{}",
+        process::id(),
+        nanos,
+        counter
+    )
 }
