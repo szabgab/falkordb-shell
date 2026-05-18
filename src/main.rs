@@ -3,7 +3,15 @@ use falkordb::{
     FalkorClientBuilder, FalkorConnectionInfo, FalkorSyncClient, FalkorValue, QueryResult,
     SyncGraph,
 };
-use rustyline::{CompletionType, Config, DefaultEditor, error::ReadlineError};
+use rustyline::{
+    CompletionType, Config, Context, Editor, Helper,
+    completion::{Completer, Pair},
+    error::ReadlineError,
+    highlight::Highlighter,
+    hint::Hinter,
+    history::DefaultHistory,
+    validate::Validator,
+};
 use serde::Deserialize;
 use std::{
     collections::HashMap,
@@ -26,12 +34,67 @@ const NO_GRAPH_SELECTED: &str =
 
 const TUTORIAL_YAML: &str = include_str!("../tutorial.yaml");
 static TUTORIAL: OnceLock<Vec<TutorialStep>> = OnceLock::new();
+const DOT_COMMANDS: &[&str] = &[
+    ".help",
+    ".exit",
+    ".quit",
+    ".tutorial",
+    ".graph",
+    ".list",
+    ".prompt",
+    ".stats",
+];
+
+type ShellEditor = Editor<ShellHelper, DefaultHistory>;
 
 #[derive(Debug, Deserialize)]
 struct TutorialStep {
     text: String,
     code: String,
 }
+
+#[derive(Default)]
+struct ShellHelper;
+
+impl Completer for ShellHelper {
+    type Candidate = Pair;
+
+    fn complete(
+        &self,
+        line: &str,
+        pos: usize,
+        _ctx: &Context<'_>,
+    ) -> rustyline::Result<(usize, Vec<Pair>)> {
+        let start = line[..pos]
+            .rfind(char::is_whitespace)
+            .map(|index| index + 1)
+            .unwrap_or(0);
+        let prefix = &line[start..pos];
+        if !prefix.starts_with('.') {
+            return Ok((start, Vec::new()));
+        }
+
+        let matches = DOT_COMMANDS
+            .iter()
+            .filter(|command| command.starts_with(prefix))
+            .map(|command| Pair {
+                display: (*command).to_string(),
+                replacement: (*command).to_string(),
+            })
+            .collect();
+        Ok((start, matches))
+    }
+}
+
+impl Hinter for ShellHelper {
+    type Hint = String;
+}
+
+impl Highlighter for ShellHelper {}
+
+impl Validator for ShellHelper {}
+
+impl Helper for ShellHelper {}
 
 #[derive(Debug, Parser)]
 #[command(name = PROJECT_NAME, version = VERSION)]
@@ -100,12 +163,13 @@ fn history_file_path() -> PathBuf {
         .join(HISTORY_FILE_NAME)
 }
 
-fn setup_editor(history_file: &Path) -> Result<DefaultEditor, Box<dyn Error>> {
+fn setup_editor(history_file: &Path) -> Result<ShellEditor, Box<dyn Error>> {
     let config = Config::builder()
         .max_history_size(1000)?
         .completion_type(CompletionType::List)
         .build();
-    let mut editor = DefaultEditor::with_config(config)?;
+    let mut editor = ShellEditor::with_config(config)?;
+    editor.set_helper(Some(ShellHelper));
 
     if history_file.exists() {
         if let Err(error) = editor.load_history(history_file) {
@@ -119,7 +183,7 @@ fn setup_editor(history_file: &Path) -> Result<DefaultEditor, Box<dyn Error>> {
     Ok(editor)
 }
 
-fn save_history(editor: &mut DefaultEditor, history_file: &Path) {
+fn save_history(editor: &mut ShellEditor, history_file: &Path) {
     if let Err(error) = editor.save_history(history_file) {
         eprintln!(
             "ERROR: failed to save history to {}: {error}",
@@ -129,7 +193,7 @@ fn save_history(editor: &mut DefaultEditor, history_file: &Path) {
 }
 
 fn run_shell(
-    editor: &mut DefaultEditor,
+    editor: &mut ShellEditor,
     client: &FalkorSyncClient,
     graph: &mut Option<SyncGraph>,
 ) -> Result<(), Box<dyn Error>> {
@@ -200,7 +264,7 @@ fn tutorial_steps() -> &'static [TutorialStep] {
 }
 
 fn run_tutorial(
-    editor: &mut DefaultEditor,
+    editor: &mut ShellEditor,
     client: &FalkorSyncClient,
     graph: &mut Option<SyncGraph>,
 ) -> Result<ShellAction, Box<dyn Error>> {
@@ -262,7 +326,7 @@ fn run_tutorial(
     Ok(ShellAction::Continue)
 }
 
-fn read_tutorial_input(editor: &mut DefaultEditor) -> Result<TutorialInput, ReadlineError> {
+fn read_tutorial_input(editor: &mut ShellEditor) -> Result<TutorialInput, ReadlineError> {
     loop {
         match editor.readline(TUTORIAL_STEP_PROMPT) {
             Ok(line) if line.trim().is_empty() => return Ok(TutorialInput::ExecuteStep),
@@ -277,7 +341,7 @@ fn read_tutorial_input(editor: &mut DefaultEditor) -> Result<TutorialInput, Read
 }
 
 fn handle_command(
-    editor: &mut DefaultEditor,
+    editor: &mut ShellEditor,
     client: &FalkorSyncClient,
     graph: &mut Option<SyncGraph>,
     prompt_style: Option<&mut PromptStyle>,
@@ -689,6 +753,7 @@ fn format_value(value: &FalkorValue) -> String {
 mod tests {
     use super::*;
     use falkordb::Node;
+    use rustyline::history::DefaultHistory;
 
     #[test]
     fn classifies_meta_commands() {
@@ -790,5 +855,17 @@ mod tests {
             tutorial.first().map(|step| step.code.as_str()),
             Some(r#"CREATE (:Person {name: "Alice"})"#)
         );
+    }
+
+    #[test]
+    fn completes_dot_commands() {
+        let helper = ShellHelper;
+        let history = DefaultHistory::new();
+        let context = Context::new(&history);
+        let (start, candidates) = helper.complete(".t", 2, &context).unwrap();
+
+        assert_eq!(start, 0);
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].replacement, ".tutorial");
     }
 }
