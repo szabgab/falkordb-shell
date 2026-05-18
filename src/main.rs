@@ -933,7 +933,7 @@ mod tests {
     fn parses_embedded_tutorial_yaml() {
         let tutorial = tutorial_steps();
 
-        assert_eq!(tutorial.len(), 13);
+        assert_eq!(tutorial.len(), 15);
         assert_eq!(
             tutorial.first().map(|step| step.code.as_str()),
             Some(r#"CREATE (:Person {name: "Alice"})"#)

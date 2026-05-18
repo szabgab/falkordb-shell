@@ -20,22 +20,31 @@
     In this case `Person` is the alias that was not used to return the Node.
   code: >-
     CREATE (Person {name: "Clark"})
-- text: Create a link (edge, relationship) from Alice to Bob called `KNOWS`. (Alice knows Bob)
+- text: |
+    Create a link (edge, relationship) from Alice to Bob called `KNOWS`. (Alice knows Bob)
+    The name of the edge is just an arbitrary word. You can use any name and you can even add attributes to the edges.
   code: >-
     MATCH (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'}) MERGE (a)-[:KNOWS]->(b)
-- text: Create another type of link between `Alice` and that `Article`.
+- text: Create another type of link between `Alice` and that `Article`. This edge has an attribute.
   code: >-
-    MATCH (p:Person {name: 'Alice'}), (a: Article) WHERE ID(a) = 0 MERGE (p)-[:published]->(a)
+    MATCH (p:Person {name: 'Alice'}), (a: Article) WHERE a.title = "Introduction for FalkorDB" MERGE (p)-[:published {date: "2026-05-18"}]->(a)
 - text: Return all the Nodes.
   code: >-
     MATCH (p) RETURN p
+- text: Return all the edges.
+  code: >-
+    MATCH ()-[r]->() RETURN r
+- text: Return all the Nodes and all the edges in one command. (Limit to 4 entries to fit the screen)
+  code: >-
+    MATCH (n) OPTIONAL MATCH (n)-[e]-(m) RETURN * LIMIT 4
 - text: Return all the Nodes with `Person` label
   code: >-
     MATCH (p:Person) RETURN p
 - text: |
-    Instead of changing the existing Node
-    This will create another `Node` of type `Person` with name `Alice`.
-    It is probably not a good idea.
+    Earlier we use `MATCH` to find an existing `Node` and we used `MERGE` to add an edge if it does not exist.
+    Now we use `CREATE`.
+    Instead of changing the existing Node this will create another `Node` of type `Person` with name `Alice`.
+    It is usually not what you want.
   code: >-
     CREATE (p:Person {name: "Alice", email: "alice@example.org"}) RETURN p
 - text: List all the Alice-es
@@ -43,7 +52,7 @@
     MATCH (p:Person, {name: "Alice"}) RETURN p
 - text: |
     Update all the Person Nodes where the name is Alice adding a new attribute
-    As we have 2 nodes mathching, this will update both.
+    As we have 2 nodes matching, this will update both.
   code: >-
     MATCH (p:Person {name: 'Alice'}) SET p.age = 42 RETURN p
 - text: Delete all the nodes (and thus all the relationships)
