@@ -393,10 +393,14 @@ fn handle_command(
                 Ok(graphs) => {
                     let current_graph = current_graph_name(graph);
                     for graph_name in graphs {
+                        let stats = match graph_counts(client, &graph_name) {
+                            Ok((nodes, edges)) => format!(" (nodes: {nodes}, edges: {edges})"),
+                            Err(error) => format!(" (ERROR: {error})"),
+                        };
                         if Some(graph_name.as_str()) == current_graph {
-                            println!("{graph_name} *");
+                            println!("{graph_name}{stats} *");
                         } else {
-                            println!("{graph_name}");
+                            println!("{graph_name}{stats}");
                         }
                     }
                 }

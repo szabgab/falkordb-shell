@@ -4,6 +4,6 @@
 .tutorial - Run the interactive tutorial; ENTER runs the step, other commands are allowed too.
 .graph - Show the current graph.
 .graph NAME - Switch to the selected graph.
-.list - List all graph names in the database.
+.list - List all graph names in the database with node and edge counts.
 .prompt - Toggle between plain and graph-aware prompts.
 .stats - Show graph statistics for the current graph.

@@ -69,7 +69,7 @@ fn shell_lists_and_reports_stats_for_random_graph() -> Result<(), Box<dyn Error>
         "shell exited unsuccessfully\nstdout:\n{stdout}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(stdout.contains(&format!("{graph_name} *")));
+    assert!(stdout.contains(&format!("{graph_name} (nodes: 1, edges: 0) *")));
     assert!(stdout.contains("Total nodes: 1"));
     assert!(stdout.contains("Total edges: 0"));
     assert!(stdout.contains("Node types:\n  Person: 1"));
