@@ -39,3 +39,5 @@ This repository contains a Rust command-line REPL for FalkorDB.
 ## Documentation
 
 - Update `README.md` when adding or changing user-visible behavior or command-line flags.
+- As instructions are given to copilot update `.github/copilot-instructions.md` with the description of the features, behavior, coding-style.
+
