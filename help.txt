@@ -1,6 +1,6 @@
 .help, - Show this help page.
 .exit, .quit - Quit the REPL.
-.tutorial - Run the interactive tutorial.
+.tutorial - Run the interactive tutorial; ENTER runs the step, other commands are allowed too.
 .graph - Show the current graph.
 .graph NAME - Switch to the selected graph.
 .list - List all graph names in the database.

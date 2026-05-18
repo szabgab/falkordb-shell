@@ -57,6 +57,17 @@ enum ShellCommand<'a> {
     Query(&'a str),
 }
 
+enum ShellAction {
+    Continue,
+    Exit,
+}
+
+enum TutorialInput {
+    ExecuteStep,
+    ExecuteCommand(String),
+    StopTutorial,
+}
+
 #[derive(Clone, Copy)]
 enum PromptStyle {
     Plain,
@@ -145,62 +156,10 @@ fn run_shell(
         }
 
         editor.add_history_entry(command)?;
-        match classify_command(command) {
-            ShellCommand::Empty => continue,
-            ShellCommand::Exit => return Ok(()),
-            ShellCommand::Graph(graph_name) => match graph_name {
-                None => match current_graph_name(graph) {
-                    Some(graph_name) => println!("{graph_name}"),
-                    None => println!("{NO_GRAPH_SELECTED}"),
-                },
-                Some(graph_name) => {
-                    *graph = Some(client.select_graph(graph_name));
-                    println!("Switched to graph: {graph_name}");
-                }
-            },
-            ShellCommand::Help => {
-                println!("{HELP}");
-            }
-            ShellCommand::Tutorial => {
-                run_tutorial(editor, client, graph)?;
-            }
-            ShellCommand::Invalid(command) => {
-                println!("ERROR: unknown command: {command}");
-            }
-            ShellCommand::List => match client.list_graphs() {
-                Ok(graphs) if graphs.is_empty() => println!("No graphs found."),
-                Ok(graphs) => {
-                    let current_graph = current_graph_name(graph);
-                    for graph_name in graphs {
-                        if Some(graph_name.as_str()) == current_graph {
-                            println!("{graph_name} *");
-                        } else {
-                            println!("{graph_name}");
-                        }
-                    }
-                }
-                Err(error) => println!("ERROR: {error}"),
-            },
-            ShellCommand::Prompt => {
-                prompt_style = match prompt_style {
-                    PromptStyle::Plain => PromptStyle::GraphName,
-                    PromptStyle::GraphName => PromptStyle::Plain,
-                };
-            }
-            ShellCommand::Stats => match graph {
-                Some(graph) => match print_stats(graph) {
-                    Ok(()) => {}
-                    Err(error) => println!("ERROR: {error}"),
-                },
-                None => println!("ERROR: {NO_GRAPH_SELECTED}"),
-            },
-            ShellCommand::Query(query) => match graph {
-                Some(graph) => match execute_query(graph, query) {
-                    Ok(()) => {}
-                    Err(error) => println!("ERROR: {error}"),
-                },
-                None => println!("ERROR: {NO_GRAPH_SELECTED}"),
-            },
+        if let ShellAction::Exit =
+            handle_command(editor, client, graph, Some(&mut prompt_style), command)?
+        {
+            return Ok(());
         }
     }
 }
@@ -244,52 +203,174 @@ fn run_tutorial(
     editor: &mut DefaultEditor,
     client: &FalkorSyncClient,
     graph: &mut Option<SyncGraph>,
-) -> Result<(), Box<dyn Error>> {
-    *graph = Some(client.select_graph(TUTORIAL_GRAPH_NAME));
-    println!("Switched to graph: {TUTORIAL_GRAPH_NAME}");
+) -> Result<ShellAction, Box<dyn Error>> {
+    ensure_tutorial_graph(client, graph, true);
 
-    let Some(tutorial_graph) = graph.as_mut() else {
-        unreachable!("tutorial graph was just selected");
-    };
-
-    if let Err(error) = clear_graph(tutorial_graph) {
+    if let Err(error) = clear_graph(
+        graph
+            .as_mut()
+            .expect("tutorial graph should be selected before clearing"),
+    ) {
         println!("ERROR: {error}");
-        return Ok(());
+        return Ok(ShellAction::Continue);
     }
 
     for (index, step) in tutorial_steps().iter().enumerate() {
+        ensure_tutorial_graph(client, graph, false);
         println!();
         println!(
             "{}",
             render_tutorial_step(index + 1, tutorial_steps().len(), step)
         );
 
-        if !wait_for_tutorial_step(editor)? {
-            println!("Tutorial stopped.");
-            return Ok(());
-        }
-
-        if let Err(error) = execute_tutorial_query(tutorial_graph, &step.code) {
-            println!("ERROR: {error}");
-            return Ok(());
+        loop {
+            match read_tutorial_input(editor)? {
+                TutorialInput::ExecuteStep => {
+                    ensure_tutorial_graph(client, graph, false);
+                    if let Err(error) = execute_tutorial_query(
+                        graph
+                            .as_mut()
+                            .expect("tutorial graph should be selected before executing"),
+                        &step.code,
+                    ) {
+                        println!("ERROR: {error}");
+                        return Ok(ShellAction::Continue);
+                    }
+                    break;
+                }
+                TutorialInput::ExecuteCommand(command) => {
+                    editor.add_history_entry(command.as_str())?;
+                    if let ShellAction::Exit =
+                        handle_command(editor, client, graph, None, command.as_str())?
+                    {
+                        return Ok(ShellAction::Exit);
+                    }
+                    if current_graph_name(graph) != Some(TUTORIAL_GRAPH_NAME) {
+                        ensure_tutorial_graph(client, graph, true);
+                    }
+                }
+                TutorialInput::StopTutorial => {
+                    println!("Tutorial stopped.");
+                    return Ok(ShellAction::Continue);
+                }
+            }
         }
     }
 
     println!("Tutorial completed.");
-    Ok(())
+    Ok(ShellAction::Continue)
 }
 
-fn wait_for_tutorial_step(editor: &mut DefaultEditor) -> Result<bool, ReadlineError> {
+fn read_tutorial_input(editor: &mut DefaultEditor) -> Result<TutorialInput, ReadlineError> {
     loop {
         match editor.readline(TUTORIAL_STEP_PROMPT) {
-            Ok(line) if line.trim().is_empty() => return Ok(true),
-            Ok(_) => println!("Press ENTER to run the tutorial command."),
+            Ok(line) if line.trim().is_empty() => return Ok(TutorialInput::ExecuteStep),
+            Ok(line) => return Ok(TutorialInput::ExecuteCommand(line.trim().to_string())),
             Err(ReadlineError::Eof) | Err(ReadlineError::Interrupted) => {
                 println!();
-                return Ok(false);
+                return Ok(TutorialInput::StopTutorial);
             }
             Err(error) => return Err(error),
         }
+    }
+}
+
+fn handle_command(
+    editor: &mut DefaultEditor,
+    client: &FalkorSyncClient,
+    graph: &mut Option<SyncGraph>,
+    prompt_style: Option<&mut PromptStyle>,
+    command: &str,
+) -> Result<ShellAction, Box<dyn Error>> {
+    match classify_command(command) {
+        ShellCommand::Empty => Ok(ShellAction::Continue),
+        ShellCommand::Exit => Ok(ShellAction::Exit),
+        ShellCommand::Graph(graph_name) => {
+            match graph_name {
+                None => match current_graph_name(graph) {
+                    Some(graph_name) => println!("{graph_name}"),
+                    None => println!("{NO_GRAPH_SELECTED}"),
+                },
+                Some(graph_name) => {
+                    *graph = Some(client.select_graph(graph_name));
+                    println!("Switched to graph: {graph_name}");
+                }
+            }
+            Ok(ShellAction::Continue)
+        }
+        ShellCommand::Help => {
+            println!("{HELP}");
+            Ok(ShellAction::Continue)
+        }
+        ShellCommand::Tutorial => run_tutorial(editor, client, graph),
+        ShellCommand::Invalid(command) => {
+            println!("ERROR: unknown command: {command}");
+            Ok(ShellAction::Continue)
+        }
+        ShellCommand::List => {
+            match client.list_graphs() {
+                Ok(graphs) if graphs.is_empty() => println!("No graphs found."),
+                Ok(graphs) => {
+                    let current_graph = current_graph_name(graph);
+                    for graph_name in graphs {
+                        if Some(graph_name.as_str()) == current_graph {
+                            println!("{graph_name} *");
+                        } else {
+                            println!("{graph_name}");
+                        }
+                    }
+                }
+                Err(error) => println!("ERROR: {error}"),
+            }
+            Ok(ShellAction::Continue)
+        }
+        ShellCommand::Prompt => {
+            match prompt_style {
+                Some(prompt_style) => {
+                    *prompt_style = match *prompt_style {
+                        PromptStyle::Plain => PromptStyle::GraphName,
+                        PromptStyle::GraphName => PromptStyle::Plain,
+                    };
+                }
+                None => println!("Prompt style can only be changed from the main shell prompt."),
+            }
+            Ok(ShellAction::Continue)
+        }
+        ShellCommand::Stats => {
+            match graph {
+                Some(graph) => match print_stats(graph) {
+                    Ok(()) => {}
+                    Err(error) => println!("ERROR: {error}"),
+                },
+                None => println!("ERROR: {NO_GRAPH_SELECTED}"),
+            }
+            Ok(ShellAction::Continue)
+        }
+        ShellCommand::Query(query) => {
+            match graph {
+                Some(graph) => match execute_query(graph, query) {
+                    Ok(()) => {}
+                    Err(error) => println!("ERROR: {error}"),
+                },
+                None => println!("ERROR: {NO_GRAPH_SELECTED}"),
+            }
+            Ok(ShellAction::Continue)
+        }
+    }
+}
+
+fn ensure_tutorial_graph(
+    client: &FalkorSyncClient,
+    graph: &mut Option<SyncGraph>,
+    announce_switch: bool,
+) {
+    if current_graph_name(graph) == Some(TUTORIAL_GRAPH_NAME) {
+        return;
+    }
+
+    *graph = Some(client.select_graph(TUTORIAL_GRAPH_NAME));
+    if announce_switch {
+        println!("Switched to graph: {TUTORIAL_GRAPH_NAME}");
     }
 }
 
