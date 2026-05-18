@@ -775,7 +775,7 @@ mod tests {
         assert!(tutorial.contains(&format!("Tutorial 1/{}", tutorial_steps().len())));
         assert!(tutorial.contains("Explanation"));
         assert!(tutorial.contains(
-            "  Create a `Node` with the `Person` label (type) and the `name` attribute (property)"
+            "  Create a `Node` with the `Person` `label` (type) and the `name` attribute (property)."
         ));
         assert!(tutorial.contains("Command"));
         assert!(tutorial.contains(r#"  CREATE (:Person {name: "Alice"})"#));
@@ -785,7 +785,7 @@ mod tests {
     fn parses_embedded_tutorial_yaml() {
         let tutorial = tutorial_steps();
 
-        assert_eq!(tutorial.len(), 12);
+        assert_eq!(tutorial.len(), 13);
         assert_eq!(
             tutorial.first().map(|step| step.code.as_str()),
             Some(r#"CREATE (:Person {name: "Alice"})"#)
