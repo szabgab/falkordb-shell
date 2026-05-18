@@ -152,6 +152,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut graph = args.graph.map(|graph_name| client.select_graph(graph_name));
 
     println!("Welcome to the interactive FalkorDB shell v{VERSION}.");
+    println!("Type .tutorial to see the tutorial.");
     println!("Type .help to see the help.");
     let shell_result = run_shell(&mut editor, &client, &mut graph);
     save_history(&mut editor, &history_file);
