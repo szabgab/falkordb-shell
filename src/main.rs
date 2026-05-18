@@ -48,7 +48,7 @@ enum ShellCommand<'a> {
     Exit,
     Graph(Option<&'a str>),
     Help,
-    Intro,
+    Tutorial,
     Invalid(&'a str),
     List,
     Prompt,
@@ -160,8 +160,8 @@ fn run_shell(
             ShellCommand::Help => {
                 println!("{HELP}");
             }
-            ShellCommand::Intro => {
-                run_intro(editor, client, graph)?;
+            ShellCommand::Tutorial => {
+                run_tutorial(editor, client, graph)?;
             }
             ShellCommand::Invalid(command) => {
                 println!("ERROR: unknown command: {command}");
@@ -218,7 +218,7 @@ fn classify_command(command: &str) -> ShellCommand<'_> {
         "" => ShellCommand::Empty,
         ".exit" | ".quit" => ShellCommand::Exit,
         ".help" => ShellCommand::Help,
-        ".intro" => ShellCommand::Intro,
+        ".tutorial" => ShellCommand::Tutorial,
         ".list" => ShellCommand::List,
         ".prompt" => ShellCommand::Prompt,
         ".stats" => ShellCommand::Stats,
@@ -239,7 +239,7 @@ fn tutorial_steps() -> &'static [TutorialStep] {
         .as_slice()
 }
 
-fn run_intro(
+fn run_tutorial(
     editor: &mut DefaultEditor,
     client: &FalkorSyncClient,
     graph: &mut Option<SyncGraph>,
@@ -574,7 +574,10 @@ mod tests {
     fn classifies_meta_commands() {
         assert!(matches!(classify_command(""), ShellCommand::Empty));
         assert!(matches!(classify_command(".help"), ShellCommand::Help));
-        assert!(matches!(classify_command(".intro"), ShellCommand::Intro));
+        assert!(matches!(
+            classify_command(".tutorial"),
+            ShellCommand::Tutorial
+        ));
         assert!(matches!(classify_command(".list"), ShellCommand::List));
         assert!(matches!(classify_command(".prompt"), ShellCommand::Prompt));
         assert!(matches!(classify_command(".stats"), ShellCommand::Stats));
