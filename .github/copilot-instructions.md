@@ -40,8 +40,8 @@ This repository contains a Rust command-line REPL for FalkorDB.
   - `run_shell`
   - unit tests in `src/main.rs`
 - For `.intro` changes, preserve the current interactive tutorial design unless the task explicitly changes it:
-  - switch to the `tutorial` graph
-  - clear the tutorial graph before starting
+  - switch to the `Tutorial` graph
+  - clear the `Tutorial` graph before starting
   - show one tutorial step at a time
   - wait for ENTER before executing the step
   - execute the tutorial command through the same query/result formatting path used by normal queries

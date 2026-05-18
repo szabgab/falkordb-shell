@@ -15,7 +15,7 @@ use std::{
 
 const HISTORY_FILE_NAME: &str = ".falkordb_shell_history";
 const PLAIN_PROMPT: &str = "falkordb> ";
-const TUTORIAL_GRAPH_NAME: &str = "tutorial";
+const TUTORIAL_GRAPH_NAME: &str = "Tutorial";
 const TUTORIAL_STEP_PROMPT: &str = "Press ENTER to run, Ctrl-C to stop> ";
 const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
