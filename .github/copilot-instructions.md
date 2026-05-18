@@ -74,6 +74,7 @@ This repository contains a Rust command-line REPL for FalkorDB.
 
 ## Validation
 
+- Run `cargo test --quiet` before you start working on any user request.
 - Run `cargo test --quiet`.
 - For release-site changes, also run the generator locally with `uv run --script scripts/build_release_site.py ...` and inspect the produced HTML when needed.
 
