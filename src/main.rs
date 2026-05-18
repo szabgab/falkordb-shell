@@ -227,6 +227,7 @@ fn run_tutorial(
             match read_tutorial_input(editor)? {
                 TutorialInput::ExecuteStep => {
                     ensure_tutorial_graph(client, graph, false);
+                    editor.add_history_entry(step.code.as_str())?;
                     if let Err(error) = execute_tutorial_query(
                         graph
                             .as_mut()
