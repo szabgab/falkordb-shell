@@ -20,6 +20,8 @@ const TUTORIAL_STEP_PROMPT: &str = "Press ENTER to run, Ctrl-C to stop> ";
 const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HELP: &str = include_str!("../help.txt");
+const NO_GRAPH_SELECTED: &str =
+    "No graph selected. Use `.list` to list available graphs and use `.graph NAME` to select one.";
 
 const TUTORIAL_YAML: &str = include_str!("../tutorial.yaml");
 static TUTORIAL: OnceLock<Vec<TutorialStep>> = OnceLock::new();
@@ -148,7 +150,7 @@ fn run_shell(
             ShellCommand::Graph(graph_name) => match graph_name {
                 None => match current_graph_name(graph) {
                     Some(graph_name) => println!("{graph_name}"),
-                    None => println!("No graph selected."),
+                    None => println!("{NO_GRAPH_SELECTED}"),
                 },
                 Some(graph_name) => {
                     *graph = Some(client.select_graph(graph_name));
@@ -189,18 +191,14 @@ fn run_shell(
                     Ok(()) => {}
                     Err(error) => println!("ERROR: {error}"),
                 },
-                None => println!(
-                    "ERROR: no graph selected. Use `.list` to list available graphs and use `.graph NAME` to select one."
-                ),
+                None => println!("ERROR: {NO_GRAPH_SELECTED}"),
             },
             ShellCommand::Query(query) => match graph {
                 Some(graph) => match execute_query(graph, query) {
                     Ok(()) => {}
                     Err(error) => println!("ERROR: {error}"),
                 },
-                None => println!(
-                    "ERROR: no graph selected. Use `.list` to list available graphs and use `.graph NAME` to select one."
-                ),
+                None => println!("ERROR: {NO_GRAPH_SELECTED}"),
             },
         }
     }

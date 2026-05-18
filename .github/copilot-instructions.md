@@ -17,6 +17,7 @@ This repository contains a Rust command-line REPL for FalkorDB.
 - Keep changes small and focused on the CLI and REPL workflow.
 - Follow the existing Rust style in `src/main.rs`: explicit enums for shell commands, small helper functions, and straightforward error propagation with `Result`.
 - Prefer extending existing helpers over duplicating logic.
+- Prefer reusing messages printed over duplicating them.
 - Keep user-facing error messages explicit; do not silently ignore failures.
 - Preserve the current shell UX unless the task explicitly changes it:
   - dot-prefixed meta commands such as `.help`, `.graph`, `.list`, `.prompt`, and `.stats`
