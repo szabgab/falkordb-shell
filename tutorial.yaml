@@ -49,7 +49,7 @@
     CREATE (p:Person {name: "Alice", email: "alice@example.org"}) RETURN p
 - text: List all the Alice-es
   code: >-
-    MATCH (p:Person, {name: "Alice"}) RETURN p
+    MATCH (p:Person {name: "Alice"}) RETURN p
 - text: |
     Update all the Person Nodes where the name is Alice adding a new attribute
     As we have 2 nodes matching, this will update both.

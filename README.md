@@ -25,3 +25,18 @@ Use `.tutorial` inside the shell to run the interactive tutorial in a dedicated 
 Use `.delete NAME` to review the node and edge counts of a graph, confirm the action, and then delete that graph.
 
 Use `.list` to show every graph together with its node and edge counts.
+
+
+Create a file called `examples/fof.txt`:
+
+```
+CREATE (a:Person {name: "Alice"})
+CREATE (b:Person {name: "Bob"})
+MATCH (p) RETURN p
+```
+
+Then run
+
+```
+falkordb-shell --graph Demo < examples/fof.txt
+```
